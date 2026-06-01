@@ -3,8 +3,10 @@ import path from 'node:path';
 
 const CACHE_DIR = path.resolve('data');
 const CACHE_FILE = path.join(CACHE_DIR, 'headlines-cache.json');
+const ARCHIVE_FILE = path.join(CACHE_DIR, 'headlines-archive.json');
 const MAX_HEADLINES = 24;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const ARCHIVE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SPORTS_RE = /\b(sports?|football|basketball|baseball|soccer|tennis|golf|hockey|olympics?|nba|nfl|mlb|nhl|fifa|wimbledon|championships?|tournament|playoffs?|athlete|player|coach|serena)\b/i;
 
 const SOURCES = [
@@ -38,7 +40,8 @@ const SOURCE_SIGNATURE = SOURCES.map(({ name, url }) => `${name}:${url}`).join('
 export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
   const cached = await readCache();
   if (!force && cached && cached.sourceSignature === SOURCE_SIGNATURE && now - new Date(cached.fetchedAt) < CACHE_TTL_MS) {
-    return cached;
+    const archive = await getArchive(now, cached);
+    return withArchive(cached, archive, 0, now);
   }
 
   const settled = await Promise.allSettled(SOURCES.map(fetchSource));
@@ -47,7 +50,10 @@ export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
     .filter((item) => item.title.length >= 8);
 
   const unique = dedupe(items).slice(0, MAX_HEADLINES);
-  if (unique.length === 0 && cached) return { ...cached, stale: true };
+  if (unique.length === 0 && cached) {
+    const archive = await getArchive(now, cached);
+    return withArchive({ ...cached, stale: true }, archive, 0, now);
+  }
   if (unique.length === 0) throw new Error('No headlines returned from sources');
 
   const payload = {
@@ -57,7 +63,18 @@ export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
     headlines: unique,
   };
   await writeCache(payload);
-  return payload;
+  const archive = await saveArchive(payload, now, cached);
+  return withArchive(payload, archive, 0, now);
+}
+
+export async function getHeadlineSnapshot({ index = 0, now = new Date() } = {}) {
+  const current = await fetchHeadlines({ now });
+  if (index <= 0) return current;
+
+  const archive = await getArchive(now, current);
+  const safeIndex = Math.min(index, Math.max(0, archive.length - 1));
+  const snapshot = archive[safeIndex] ?? current;
+  return withArchive(snapshot, archive, safeIndex, now);
 }
 
 async function fetchSource(source) {
@@ -144,6 +161,52 @@ function dedupe(items) {
   return out;
 }
 
+async function getArchive(now, current = null) {
+  return pruneArchive(await readArchive(), now, current);
+}
+
+async function saveArchive(snapshot, now, previousSnapshot = null) {
+  const archive = pruneArchive([previousSnapshot, ...await readArchive()].filter(Boolean), now, snapshot);
+  await writeArchive(archive);
+  return archive;
+}
+
+function pruneArchive(archive, now, extraSnapshot = null) {
+  const cutoff = now.getTime() - ARCHIVE_TTL_MS;
+  const byFetchedAt = new Map();
+
+  for (const snapshot of [extraSnapshot, ...archive].filter(Boolean)) {
+    if (!snapshot.fetchedAt || !Array.isArray(snapshot.headlines)) continue;
+    const fetchedAt = new Date(snapshot.fetchedAt);
+    if (Number.isNaN(fetchedAt.getTime()) || fetchedAt.getTime() < cutoff) continue;
+    byFetchedAt.set(snapshot.fetchedAt, stripArchiveMetadata(snapshot));
+  }
+
+  return [...byFetchedAt.values()]
+    .sort((a, b) => new Date(b.fetchedAt) - new Date(a.fetchedAt));
+}
+
+function stripArchiveMetadata(snapshot) {
+  const { archive: _archive, stale: _stale, currentAgeMs: _currentAgeMs, ...clean } = snapshot;
+  return clean;
+}
+
+function withArchive(snapshot, archive, index, now) {
+  const clean = stripArchiveMetadata(snapshot);
+  const currentAgeMs = now - new Date(clean.fetchedAt);
+  return {
+    ...clean,
+    currentAgeMs,
+    stale: Boolean(snapshot.stale) || currentAgeMs >= CACHE_TTL_MS,
+    archive: {
+      index,
+      count: archive.length,
+      hasPrevious: index < archive.length - 1,
+      hasNext: index > 0,
+    },
+  };
+}
+
 function decodeXml(value) {
   return value
     .replace(/&amp;/g, '&')
@@ -166,4 +229,18 @@ async function readCache() {
 async function writeCache(payload) {
   await fs.mkdir(CACHE_DIR, { recursive: true });
   await fs.writeFile(CACHE_FILE, JSON.stringify(payload, null, 2));
+}
+
+async function readArchive() {
+  try {
+    const data = JSON.parse(await fs.readFile(ARCHIVE_FILE, 'utf8'));
+    return Array.isArray(data.snapshots) ? data.snapshots : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeArchive(snapshots) {
+  await fs.mkdir(CACHE_DIR, { recursive: true });
+  await fs.writeFile(ARCHIVE_FILE, JSON.stringify({ snapshots }, null, 2));
 }

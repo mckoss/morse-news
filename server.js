@@ -1,5 +1,5 @@
 import express from 'express';
-import { fetchHeadlines } from './src/headlines.js';
+import { fetchHeadlines, getHeadlineSnapshot } from './src/headlines.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -9,10 +9,14 @@ app.use(express.static('public', {
   maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
 }));
 
-app.get('/api/headlines', async (_req, res) => {
+app.get('/api/headlines', async (req, res) => {
   try {
-    const payload = await fetchHeadlines();
-    res.set('Cache-Control', 'public, max-age=900');
+    const index = Math.max(0, Number.parseInt(req.query.index ?? '0', 10) || 0);
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const payload = index > 0
+      ? await getHeadlineSnapshot({ index })
+      : await fetchHeadlines({ force });
+    res.set('Cache-Control', force ? 'no-store' : 'public, max-age=900');
     res.json(payload);
   } catch (error) {
     console.error('headline fetch failed', error);

@@ -131,6 +131,18 @@ output { color: var(--text); }
   gap: 12px;
 }
 
+.history-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.snapshot-time {
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+
 .headline-list {
   margin: 0;
   padding-left: 1.35rem;
@@ -141,6 +153,7 @@ output { color: var(--text); }
 .headline-list li { padding-left: 4px; }
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
 .headline-list a { color: var(--accent-2); font-weight: 800; }
+.hidden { display: none; }
 
 @media (min-width: 760px) {
   .app-shell {

@@ -10,9 +10,12 @@ const MORSE = {
 
 const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 const MESSAGE_GAP_MS = 5000;
+const STALE_MS = 6 * 60 * 60 * 1000;
 
 const state = {
   headlines: [],
+  payload: null,
+  historyIndex: 0,
   speed: 5,
   playing: false,
   audio: null,
@@ -32,6 +35,9 @@ const els = {
   start: document.querySelector('#start'),
   stop: document.querySelector('#stop'),
   refresh: document.querySelector('#refresh'),
+  previous: document.querySelector('#previous'),
+  next: document.querySelector('#next'),
+  snapshotTime: document.querySelector('#snapshot-time'),
   minutes: document.querySelector('#minutes'),
   frequency: document.querySelector('#frequency'),
   frequencyLabel: document.querySelector('#frequency-label'),
@@ -55,17 +61,28 @@ els.minutes.addEventListener('change', () => {
 
 els.start.addEventListener('click', startPractice);
 els.stop.addEventListener('click', stopPractice);
-els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true }));
+els.refresh.addEventListener('click', () => loadHeadlines({ force: true, forceUi: true, index: 0 }));
+els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
+els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
 
 await loadHeadlines();
+setInterval(updateSnapshotControls, 60 * 1000);
 
-async function loadHeadlines({ forceUi = false } = {}) {
+async function loadHeadlines({ force = false, forceUi = false, index = state.historyIndex } = {}) {
   els.headlineCount.textContent = forceUi ? 'Refreshing headlines…' : 'Loading headlines…';
   try {
-    const response = await fetch('/api/headlines');
+    const params = new URLSearchParams();
+    if (index > 0) params.set('index', String(index));
+    if (force) params.set('force', '1');
+    const query = params.toString();
+    const response = await fetch(`/api/headlines${query ? `?${query}` : ''}`, {
+      cache: force ? 'no-store' : 'default',
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     state.headlines = payload.headlines ?? [];
+    state.payload = payload;
+    state.historyIndex = payload.archive?.index ?? index;
     renderHeadlines(payload);
   } catch (error) {
     console.error(error);
@@ -74,8 +91,8 @@ async function loadHeadlines({ forceUi = false } = {}) {
 }
 
 function renderHeadlines(payload) {
-  const fetched = new Date(payload.fetchedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-  els.headlineCount.textContent = `${state.headlines.length} headlines loaded · ${fetched}${payload.stale ? ' · stale cache' : ''}`;
+  els.headlineCount.textContent = `${state.headlines.length} headlines loaded`;
+  updateSnapshotControls();
   els.headlines.innerHTML = state.headlines.map((item) => `
     <li>
       ${escapeHtml(item.title)}
@@ -85,6 +102,22 @@ function renderHeadlines(payload) {
       </small>
     </li>
   `).join('');
+}
+
+function updateSnapshotControls() {
+  if (!state.payload?.fetchedAt) return;
+
+  const fetchedAt = new Date(state.payload.fetchedAt);
+  const archive = state.payload.archive ?? {};
+  const isCurrent = (archive.index ?? 0) === 0;
+  const ageMs = Date.now() - fetchedAt.getTime();
+  const isStale = isCurrent && ageMs >= STALE_MS;
+  const ageText = isCurrent ? ` · ${formatAge(ageMs)} old` : '';
+  const archiveText = archive.count > 1 ? ` · set ${(archive.index ?? 0) + 1} of ${archive.count}` : '';
+  els.snapshotTime.textContent = `Updated ${formatSnapshotTime(fetchedAt)}${ageText}${archiveText}`;
+  els.previous.disabled = !archive.hasPrevious;
+  els.next.disabled = !archive.hasNext;
+  els.refresh.classList.toggle('hidden', !isStale);
 }
 
 async function startPractice() {
@@ -224,4 +257,19 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value);
+}
+
+function formatSnapshotTime(date) {
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function formatAge(ms) {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) return remainingMinutes ? `${hours} hr ${remainingMinutes} min` : `${hours} hr`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours ? `${days} day ${remainingHours} hr` : `${days} day`;
 }

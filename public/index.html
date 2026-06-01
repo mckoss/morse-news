@@ -11,7 +11,7 @@
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.03</span></h1>
+      <h1>Morse News <span id="version">v 1.04</span></h1>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
 
@@ -59,8 +59,13 @@
     <section class="panel">
       <div class="section-head">
         <h2>Today’s headlines</h2>
-        <button id="refresh" class="quiet">Refresh</button>
+        <div class="history-buttons" aria-label="Headline history controls">
+          <button id="previous" class="quiet" disabled>Previous</button>
+          <button id="next" class="quiet" disabled>Next</button>
+          <button id="refresh" class="quiet hidden">Refresh</button>
+        </div>
       </div>
+      <p id="snapshot-time" class="muted snapshot-time">Loading update time…</p>
       <ol id="headlines" class="headline-list"></ol>
     </section>
   </main>
