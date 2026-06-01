@@ -77,7 +77,13 @@ function renderHeadlines(payload) {
   const fetched = new Date(payload.fetchedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   els.headlineCount.textContent = `${state.headlines.length} headlines loaded · ${fetched}${payload.stale ? ' · stale cache' : ''}`;
   els.headlines.innerHTML = state.headlines.map((item) => `
-    <li>${escapeHtml(item.title)}<small>${escapeHtml(item.source)} · ${escapeHtml(item.category)}</small></li>
+    <li>
+      ${escapeHtml(item.title)}
+      <small>
+        ${escapeHtml(item.source)} · ${escapeHtml(item.category)}
+        ${item.link ? ` · <a href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}
+      </small>
+    </li>
   `).join('');
 }
 
@@ -214,4 +220,8 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   }[char]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
 }

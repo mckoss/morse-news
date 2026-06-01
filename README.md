@@ -14,7 +14,8 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 ## Features
 
 - Daily-ish cached headline feed at `/api/headlines`
-- Generic source mix: NPR, AP via RSSHub, ScienceDaily, NASA
+- Generic source mix: NPR, New York Times, The Guardian World, and ScienceDaily
+- Sports headline filtering and article links when the RSS feed provides a URL
 - Mobile-friendly practice interface
 - 5, 10, 15, and 20 WPM effective copy speeds
 - Farnsworth timing: characters at 20 WPM, spacing stretched for slower selected speeds

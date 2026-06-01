@@ -5,33 +5,39 @@ const CACHE_DIR = path.resolve('data');
 const CACHE_FILE = path.join(CACHE_DIR, 'headlines-cache.json');
 const MAX_HEADLINES = 24;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const SPORTS_RE = /\b(sports?|football|basketball|baseball|soccer|tennis|golf|hockey|olympics?|nba|nfl|mlb|nhl|fifa|wimbledon|championships?|tournament|playoffs?|athlete|player|coach|serena)\b/i;
 
 const SOURCES = [
   {
     name: 'NPR News',
     category: 'national',
     url: 'https://feeds.npr.org/1001/rss.xml',
+    excludeSports: true,
   },
   {
-    name: 'AP Top News',
+    name: 'New York Times',
     category: 'general',
-    url: 'https://rsshub.app/apnews/topics/apf-topnews',
+    url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',
+    excludeSports: true,
+  },
+  {
+    name: 'The Guardian',
+    category: 'world',
+    url: 'https://www.theguardian.com/world/rss',
+    excludeSports: true,
   },
   {
     name: 'ScienceDaily',
     category: 'science',
     url: 'https://www.sciencedaily.com/rss/top/science.xml',
-  },
-  {
-    name: 'NASA Breaking News',
-    category: 'science',
-    url: 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
+    excludeSports: true,
   },
 ];
+const SOURCE_SIGNATURE = SOURCES.map(({ name, url }) => `${name}:${url}`).join('|');
 
 export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
   const cached = await readCache();
-  if (!force && cached && now - new Date(cached.fetchedAt) < CACHE_TTL_MS) {
+  if (!force && cached && cached.sourceSignature === SOURCE_SIGNATURE && now - new Date(cached.fetchedAt) < CACHE_TTL_MS) {
     return cached;
   }
 
@@ -46,6 +52,7 @@ export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
 
   const payload = {
     fetchedAt: now.toISOString(),
+    sourceSignature: SOURCE_SIGNATURE,
     sources: SOURCES.map(({ name, category }) => ({ name, category })),
     headlines: unique,
   };
@@ -62,20 +69,26 @@ async function fetchSource(source) {
   });
   if (!response.ok) throw new Error(`${source.name}: ${response.status}`);
   const xml = await response.text();
-  return parseRssTitles(xml).slice(0, 8).map((title) => ({
-    title: normalizeHeadline(title),
-    source: source.name,
-    category: source.category,
-  }));
+  return parseRssItems(xml)
+    .filter((item) => !source.excludeSports || !isSportsItem(item))
+    .slice(0, 8)
+    .map((item) => ({
+      title: normalizeHeadline(item.title),
+      source: source.name,
+      category: source.category,
+      link: item.link,
+    }));
 }
 
 export function parseRssTitles(xml) {
+  return parseRssItems(xml).map((item) => item.title);
+}
+
+export function parseRssItems(xml) {
   const itemBlocks = [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)].map((match) => match[0]);
   return itemBlocks
-    .map((block) => block.match(/<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i)?.[1] ?? '')
-    .map(decodeXml)
-    .map((title) => title.replace(/<!\[CDATA\[|\]\]>/g, '').trim())
-    .filter(Boolean);
+    .map(parseRssItem)
+    .filter((item) => item.title);
 }
 
 export function normalizeHeadline(title) {
@@ -85,6 +98,37 @@ export function normalizeHeadline(title) {
     .replace(/[‘’]/g, "'")
     .replace(/—|–/g, '-')
     .trim();
+}
+
+function parseRssItem(block) {
+  return {
+    title: cleanXmlText(firstTagValue(block, 'title')),
+    link: cleanUrl(cleanXmlText(firstTagValue(block, 'link'))),
+    categories: allTagValues(block, 'category').map(cleanXmlText).filter(Boolean),
+  };
+}
+
+function firstTagValue(block, tagName) {
+  return block.match(new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`, 'i'))?.[1] ?? '';
+}
+
+function allTagValues(block, tagName) {
+  return [...block.matchAll(new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`, 'gi'))]
+    .map((match) => match[1]);
+}
+
+function cleanXmlText(value) {
+  return decodeXml(value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')).trim();
+}
+
+function cleanUrl(value) {
+  const url = value.trim();
+  return /^https?:\/\//i.test(url) ? url : '';
+}
+
+function isSportsItem(item) {
+  const haystack = [item.title, item.link, ...item.categories].join(' ');
+  return SPORTS_RE.test(haystack) || /\/sport(s)?\//i.test(item.link);
 }
 
 function dedupe(items) {
