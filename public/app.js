@@ -1,3 +1,9 @@
+import {
+  headlineKey,
+  nextHeadlineIndex as computeNextHeadlineIndex,
+  resolveCompletedHeadlineIndex,
+} from './playback-state.js';
+
 const MORSE = {
   A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
   J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.',
@@ -257,7 +263,12 @@ function finishPractice(message) {
 
 async function ensureAudio() {
   if (!state.audio) {
-    state.audio = new AudioContext();
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) {
+      els.progress.textContent = 'This browser does not support Web Audio.';
+      throw new Error('Web Audio is not supported');
+    }
+    state.audio = new AudioCtor();
     state.oscillator = state.audio.createOscillator();
     state.gain = state.audio.createGain();
     state.oscillator.type = 'sine';
@@ -411,8 +422,7 @@ function updatePlaybackStatus() {
 }
 
 function nextHeadlineIndex() {
-  if (state.headlines.length === 0) return 0;
-  return (state.lastCompletedHeadlineIndex + 1 + state.headlines.length) % state.headlines.length;
+  return computeNextHeadlineIndex(state.lastCompletedHeadlineIndex, state.headlines.length);
 }
 
 function updateHeadlineMarker() {
@@ -443,18 +453,7 @@ function restorePlaybackProgress() {
   const saved = readPlaybackState();
   if (!saved) return;
 
-  const savedKey = String(saved.lastCompletedHeadlineKey || '');
-  let completedIndex = savedKey
-    ? state.headlines.findIndex((headline) => headlineKey(headline) === savedKey)
-    : -1;
-
-  if (completedIndex < 0 && saved.fetchedAt === state.payload?.fetchedAt) {
-    const savedIndex = Number(saved.lastCompletedHeadlineIndex);
-    if (Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < state.headlines.length) {
-      completedIndex = savedIndex;
-    }
-  }
-
+  const completedIndex = resolveCompletedHeadlineIndex(saved, state.headlines, state.payload?.fetchedAt);
   if (completedIndex < 0) return;
 
   state.lastCompletedHeadlineIndex = completedIndex;
@@ -508,15 +507,6 @@ function readPlaybackStateCookie() {
     console.warn('Could not read Morse playback state cookie', error);
     return null;
   }
-}
-
-function headlineKey(item) {
-  return [
-    item?.title ?? '',
-    item?.source ?? '',
-    item?.category ?? '',
-    item?.link ?? '',
-  ].map((value) => String(value).trim().toLowerCase()).join('|');
 }
 
 function escapeHtml(value) {

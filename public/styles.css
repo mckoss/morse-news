@@ -158,13 +158,12 @@ output { color: var(--text); }
 }
 
 .headline-list li.next-headline {
-  color: #fff5bd;
-  background: rgb(246 216 95 / 0.16);
+  color: #fff07a;
   border-left-color: #f6d85f;
 }
 
 .headline-list li.next-headline small {
-  color: #e5c957;
+  color: #ffe98a;
 }
 
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
