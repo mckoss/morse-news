@@ -12,6 +12,7 @@ const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 const MESSAGE_GAP_MS = 5000;
 const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
+const PROGRESS_COOKIE = 'morseNewsProgress';
 
 const state = {
   headlines: [],
@@ -26,6 +27,10 @@ const state = {
   timeout: null,
   waitResolve: null,
   currentHeadlineIndex: 0,
+  currentUnitIndex: 0,
+  lastCompletedHeadlineIndex: -1,
+  lastSentUnitIndex: -1,
+  playbackRunId: 0,
   loopRunning: false,
   startedAt: 0,
   segmentStartedAt: 0,
@@ -91,6 +96,7 @@ async function loadHeadlines({ force = false, forceUi = false, index = state.his
     state.headlines = payload.headlines ?? [];
     state.payload = payload;
     state.historyIndex = payload.archive?.index ?? index;
+    restoreProgressFromCookie();
     renderHeadlines(payload);
   } catch (error) {
     console.error(error);
@@ -101,8 +107,8 @@ async function loadHeadlines({ force = false, forceUi = false, index = state.his
 function renderHeadlines(payload) {
   els.headlineCount.textContent = `${state.headlines.length} headlines loaded`;
   updateSnapshotControls();
-  els.headlines.innerHTML = state.headlines.map((item) => `
-    <li>
+  els.headlines.innerHTML = state.headlines.map((item, index) => `
+    <li data-headline-index="${index}">
       ${escapeHtml(item.title)}
       <small>
         ${escapeHtml(item.source)} · ${escapeHtml(item.category)}
@@ -110,6 +116,7 @@ function renderHeadlines(payload) {
       </small>
     </li>
   `).join('');
+  updateHeadlineMarker();
 }
 
 function updateSnapshotControls() {
@@ -132,8 +139,11 @@ async function startPractice() {
   if (state.playing || state.sessionActive || state.headlines.length === 0) return;
   state.durationMs = Number(els.minutes.value) * 60 * 1000;
   state.remainingMs = state.durationMs;
-  state.currentHeadlineIndex = 0;
+  state.currentHeadlineIndex = nextHeadlineIndex();
+  state.currentUnitIndex = 0;
+  state.lastSentUnitIndex = -1;
   state.sessionActive = true;
+  updateHeadlineMarker();
   await startPlayback({ delayMs: START_DELAY_MS, message: 'Starting in 2 seconds…' });
 }
 
@@ -154,6 +164,8 @@ async function startPlayback({ delayMs = 0, message = '' } = {}) {
   state.playing = true;
   state.segmentStartedAt = performance.now();
   if (!state.startedAt) state.startedAt = state.segmentStartedAt;
+  state.playbackRunId += 1;
+  const runId = state.playbackRunId;
   els.start.disabled = true;
   els.stop.disabled = false;
   els.stop.textContent = 'Stop';
@@ -166,20 +178,22 @@ async function startPlayback({ delayMs = 0, message = '' } = {}) {
     await wait(delayMs);
   }
 
-  if (!state.playing) return;
+  if (!state.playing || runId !== state.playbackRunId) return;
   state.segmentStartedAt = performance.now();
-  playLoop();
+  playLoop(runId);
 }
 
 function pausePractice() {
   state.remainingMs = remainingSessionMs();
+  if (state.lastSentUnitIndex >= 0) state.currentUnitIndex = state.lastSentUnitIndex;
   state.playing = false;
+  state.playbackRunId += 1;
   cancelWait();
   setTone(false);
   els.start.disabled = true;
   els.stop.disabled = false;
   els.stop.textContent = 'Resume';
-  els.progress.textContent = 'Paused.';
+  els.progress.textContent = 'Paused. Resume repeats the last character.';
 }
 
 function finishPractice(message) {
@@ -211,16 +225,21 @@ async function ensureAudio() {
   if (state.audio.state !== 'running') await state.audio.resume();
 }
 
-async function playLoop() {
-  if (state.loopRunning) return;
+async function playLoop(runId) {
   state.loopRunning = true;
 
-  while (state.playing && remainingSessionMs() > 0) {
+  while (state.playing && runId === state.playbackRunId && remainingSessionMs() > 0) {
     const item = state.headlines[state.currentHeadlineIndex % state.headlines.length];
     els.currentTitle.textContent = item.title;
-    const completed = await playText(item.title, tokensForHeadline(item.title, state.speed));
+    updateHeadlineMarker();
+    const completed = await playHeadline(item.title, unitsForHeadline(item.title, state.speed), runId);
     if (!completed) break;
+    state.lastCompletedHeadlineIndex = state.currentHeadlineIndex % state.headlines.length;
+    saveProgressToCookie();
     state.currentHeadlineIndex += 1;
+    state.currentUnitIndex = 0;
+    state.lastSentUnitIndex = -1;
+    updateHeadlineMarker();
   }
 
   if (state.playing) {
@@ -231,63 +250,74 @@ async function playLoop() {
   state.loopRunning = false;
 }
 
-async function playText(title, events) {
-  for (const event of events) {
-    if (!state.playing) return false;
-    setTone(event.on);
-    const remainingMs = remainingSessionMs();
-    const elapsed = state.durationMs - remainingMs;
-    els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
-    els.meter.style.width = `${Math.min(100, (elapsed / state.durationMs) * 100)}%`;
-    await wait(event.ms);
+async function playHeadline(title, units, runId) {
+  for (let unitIndex = state.currentUnitIndex; unitIndex < units.length; unitIndex += 1) {
+    const unit = units[unitIndex];
+    if (!state.playing || runId !== state.playbackRunId) return false;
+    state.currentUnitIndex = unitIndex;
+    if (unit.repeatable) state.lastSentUnitIndex = unitIndex;
+
+    for (const event of unit.events) {
+      if (!state.playing || runId !== state.playbackRunId) return false;
+      setTone(event.on);
+      const remainingMs = remainingSessionMs();
+      const elapsed = state.durationMs - remainingMs;
+      els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
+      els.meter.style.width = `${Math.min(100, (elapsed / state.durationMs) * 100)}%`;
+      await wait(event.ms);
+    }
   }
   return true;
 }
 
-function tokensForHeadline(text, effectiveWpm) {
+function unitsForHeadline(text, effectiveWpm) {
   return [
-    ...tokensForText(text, effectiveWpm),
-    ...tokensForProsign(END_OF_MESSAGE_PROSIGN, effectiveWpm),
-    { on: false, ms: MESSAGE_GAP_MS },
+    ...unitsForText(text, effectiveWpm),
+    ...unitsForProsign(END_OF_MESSAGE_PROSIGN, effectiveWpm),
+    { repeatable: false, events: [{ on: false, ms: MESSAGE_GAP_MS }] },
   ];
 }
 
-function tokensForText(text, effectiveWpm) {
+function unitsForText(text, effectiveWpm) {
   // Farnsworth: characters are sent at 20 WPM, spacing is stretched for slower effective copy speeds.
   const characterWpm = 20;
   const charUnit = 1200 / characterWpm;
   const spacingUnit = 1200 / Math.min(effectiveWpm, characterWpm);
-  const events = [];
+  const units = [];
   const words = sanitize(text).split(/\s+/).filter(Boolean);
 
   words.forEach((word, wordIndex) => {
     [...word].forEach((char, charIndex) => {
       const code = MORSE[char];
       if (!code) return;
+      const events = [];
       [...code].forEach((symbol, symbolIndex) => {
         events.push({ on: true, ms: symbol === '.' ? charUnit : charUnit * 3 });
         if (symbolIndex < code.length - 1) events.push({ on: false, ms: charUnit });
       });
-      if (charIndex < word.length - 1) events.push({ on: false, ms: spacingUnit * 3 });
+      units.push({ repeatable: true, events });
+      if (charIndex < word.length - 1) units.push({ repeatable: false, events: [{ on: false, ms: spacingUnit * 3 }] });
     });
-    if (wordIndex < words.length - 1) events.push({ on: false, ms: spacingUnit * 7 });
+    if (wordIndex < words.length - 1) units.push({ repeatable: false, events: [{ on: false, ms: spacingUnit * 7 }] });
   });
-  events.push({ on: false, ms: spacingUnit * 10 });
-  return events;
+  units.push({ repeatable: false, events: [{ on: false, ms: spacingUnit * 10 }] });
+  return units;
 }
 
-function tokensForProsign(code, effectiveWpm) {
+function unitsForProsign(code, effectiveWpm) {
   const characterWpm = 20;
   const charUnit = 1200 / characterWpm;
   const spacingUnit = 1200 / Math.min(effectiveWpm, characterWpm);
-  const events = [{ on: false, ms: spacingUnit * 7 }];
+  const units = [{ repeatable: false, events: [{ on: false, ms: spacingUnit * 7 }] }];
+  const events = [];
 
   [...code].forEach((symbol, symbolIndex) => {
     events.push({ on: true, ms: symbol === '.' ? charUnit : charUnit * 3 });
     if (symbolIndex < code.length - 1) events.push({ on: false, ms: charUnit });
   });
+  units.push({ repeatable: true, events });
 
-  return events;
+  return units;
 }
 
 function sanitize(text) {
@@ -328,6 +358,61 @@ function cancelWait() {
 function remainingSessionMs() {
   if (!state.playing) return state.remainingMs;
   return Math.max(0, state.remainingMs - (performance.now() - state.segmentStartedAt));
+}
+
+function nextHeadlineIndex() {
+  if (state.headlines.length === 0) return 0;
+  return (state.lastCompletedHeadlineIndex + 1 + state.headlines.length) % state.headlines.length;
+}
+
+function updateHeadlineMarker() {
+  const activeIndex = state.sessionActive
+    ? state.currentHeadlineIndex % state.headlines.length
+    : nextHeadlineIndex();
+
+  els.headlines.querySelectorAll('li').forEach((item) => {
+    const itemIndex = Number(item.dataset.headlineIndex);
+    item.classList.toggle('next-headline', Number.isFinite(activeIndex) && itemIndex === activeIndex);
+  });
+}
+
+function restoreProgressFromCookie() {
+  state.lastCompletedHeadlineIndex = -1;
+  if (state.headlines.length === 0 || !state.payload?.fetchedAt) return;
+
+  const progress = readProgressCookie();
+  if (progress?.fetchedAt !== state.payload.fetchedAt) return;
+  const completedIndex = Number(progress.lastCompletedHeadlineIndex);
+  if (!Number.isInteger(completedIndex)) return;
+  if (completedIndex < 0 || completedIndex >= state.headlines.length) return;
+
+  state.lastCompletedHeadlineIndex = completedIndex;
+  state.currentHeadlineIndex = nextHeadlineIndex();
+}
+
+function saveProgressToCookie() {
+  if (!state.payload?.fetchedAt) return;
+  const progress = {
+    fetchedAt: state.payload.fetchedAt,
+    lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
+  };
+  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+  document.cookie = `${PROGRESS_COOKIE}=${encodeURIComponent(JSON.stringify(progress))}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function readProgressCookie() {
+  const prefix = `${PROGRESS_COOKIE}=`;
+  const cookie = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(prefix));
+  if (!cookie) return null;
+
+  try {
+    return JSON.parse(decodeURIComponent(cookie.slice(prefix.length)));
+  } catch (error) {
+    console.warn('Could not read Morse progress cookie', error);
+    return null;
+  }
 }
 
 function escapeHtml(value) {

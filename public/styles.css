@@ -150,7 +150,20 @@ output { color: var(--text); }
   gap: 12px;
 }
 
-.headline-list li { padding-left: 4px; }
+.headline-list li {
+  padding-left: 4px;
+  border-left: 3px solid transparent;
+}
+
+.headline-list li.next-headline {
+  color: #f6d85f;
+  border-left-color: #f6d85f;
+}
+
+.headline-list li.next-headline small {
+  color: #e5c957;
+}
+
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
 .headline-list a { color: var(--accent-2); font-weight: 800; }
 .hidden { display: none; }
