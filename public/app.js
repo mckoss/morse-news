@@ -12,7 +12,9 @@ const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 const MESSAGE_GAP_MS = 5000;
 const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
-const PROGRESS_COOKIE = 'morseNewsProgress';
+const PLAYBACK_STATE_COOKIE = 'morseNewsPlaybackState';
+const PLAYBACK_STATE_STORAGE_KEY = 'morseNewsPlaybackState';
+const PLAYBACK_STATE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 const state = {
   headlines: [],
@@ -41,7 +43,6 @@ const state = {
 const els = {
   headlineCount: document.querySelector('#headline-count'),
   headlines: document.querySelector('#headlines'),
-  currentTitle: document.querySelector('#current-title'),
   progress: document.querySelector('#progress'),
   meter: document.querySelector('#meter-fill'),
   start: document.querySelector('#start'),
@@ -57,8 +58,7 @@ const els = {
 
 document.querySelectorAll('.speed').forEach((button) => {
   button.addEventListener('click', () => {
-    state.speed = Number(button.dataset.speed);
-    document.querySelectorAll('.speed').forEach((item) => item.classList.toggle('active', item === button));
+    setSpeed(Number(button.dataset.speed));
   });
 });
 
@@ -68,8 +68,7 @@ els.frequency.addEventListener('input', () => {
 });
 
 els.minutes.addEventListener('change', () => {
-  state.durationMs = Number(els.minutes.value) * 60 * 1000;
-  if (!state.playing && !state.sessionActive) state.remainingMs = state.durationMs;
+  setDurationMinutes(Number(els.minutes.value));
 });
 
 els.start.addEventListener('click', startPractice);
@@ -78,6 +77,7 @@ els.refresh.addEventListener('click', () => loadHeadlines({ force: true, forceUi
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
 
+restorePlaybackPreferences();
 await loadHeadlines();
 setInterval(updateSnapshotControls, 60 * 1000);
 
@@ -96,12 +96,46 @@ async function loadHeadlines({ force = false, forceUi = false, index = state.his
     state.headlines = payload.headlines ?? [];
     state.payload = payload;
     state.historyIndex = payload.archive?.index ?? index;
-    restoreProgressFromCookie();
+    restorePlaybackProgress();
     renderHeadlines(payload);
   } catch (error) {
     console.error(error);
     els.headlineCount.textContent = 'Could not load headlines. Try refresh in a minute.';
   }
+}
+
+function setSpeed(speed, { persist = true } = {}) {
+  if (![5, 10, 15, 20].includes(speed)) return;
+  state.speed = speed;
+  document.querySelectorAll('.speed').forEach((item) => {
+    item.classList.toggle('active', Number(item.dataset.speed) === speed);
+  });
+  if (persist) savePlaybackState();
+}
+
+function setDurationMinutes(minutes, { persist = true } = {}) {
+  if (![5, 10, 15].includes(minutes)) return;
+
+  const previousDurationMs = state.durationMs;
+  const elapsedMs = state.sessionActive
+    ? Math.max(0, previousDurationMs - remainingSessionMs())
+    : 0;
+
+  state.durationMs = minutes * 60 * 1000;
+  els.minutes.value = String(minutes);
+
+  if (state.playing) {
+    state.remainingMs = Math.max(0, state.durationMs - elapsedMs);
+    state.segmentStartedAt = performance.now();
+    if (state.remainingMs <= 0) cancelWait();
+  } else if (state.sessionActive) {
+    state.remainingMs = Math.max(0, state.durationMs - elapsedMs);
+  } else {
+    state.remainingMs = state.durationMs;
+  }
+
+  updatePlaybackStatus();
+  if (persist) savePlaybackState();
 }
 
 function renderHeadlines(payload) {
@@ -136,15 +170,26 @@ function updateSnapshotControls() {
 }
 
 async function startPractice() {
-  if (state.playing || state.sessionActive || state.headlines.length === 0) return;
-  state.durationMs = Number(els.minutes.value) * 60 * 1000;
-  state.remainingMs = state.durationMs;
-  state.currentHeadlineIndex = nextHeadlineIndex();
+  if (state.headlines.length === 0) return;
+
+  if (state.sessionActive) {
+    state.remainingMs = state.durationMs;
+    state.startedAt = 0;
+    state.segmentStartedAt = 0;
+    state.playing = false;
+    state.playbackRunId += 1;
+    cancelWait();
+    setTone(false);
+  } else {
+    state.remainingMs = state.durationMs;
+    state.currentHeadlineIndex = nextHeadlineIndex();
+    state.sessionActive = true;
+  }
+
   state.currentUnitIndex = 0;
   state.lastSentUnitIndex = -1;
-  state.sessionActive = true;
   updateHeadlineMarker();
-  await startPlayback({ delayMs: START_DELAY_MS, message: 'Starting in 2 seconds…' });
+  await startPlayback({ delayMs: START_DELAY_MS, message: 'Starting this headline in 2 seconds…' });
 }
 
 async function togglePauseResume() {
@@ -166,14 +211,13 @@ async function startPlayback({ delayMs = 0, message = '' } = {}) {
   if (!state.startedAt) state.startedAt = state.segmentStartedAt;
   state.playbackRunId += 1;
   const runId = state.playbackRunId;
-  els.start.disabled = true;
+  els.start.disabled = false;
   els.stop.disabled = false;
   els.stop.textContent = 'Stop';
   await ensureAudio();
 
   if (delayMs > 0) {
     setTone(false);
-    els.currentTitle.textContent = state.headlines[state.currentHeadlineIndex % state.headlines.length]?.title ?? 'Ready';
     els.progress.textContent = message;
     await wait(delayMs);
   }
@@ -190,7 +234,7 @@ function pausePractice() {
   state.playbackRunId += 1;
   cancelWait();
   setTone(false);
-  els.start.disabled = true;
+  els.start.disabled = false;
   els.stop.disabled = false;
   els.stop.textContent = 'Resume';
   els.progress.textContent = 'Paused. Resume repeats the last character.';
@@ -230,12 +274,11 @@ async function playLoop(runId) {
 
   while (state.playing && runId === state.playbackRunId && remainingSessionMs() > 0) {
     const item = state.headlines[state.currentHeadlineIndex % state.headlines.length];
-    els.currentTitle.textContent = item.title;
     updateHeadlineMarker();
-    const completed = await playHeadline(item.title, unitsForHeadline(item.title, state.speed), runId);
+    const completed = await playHeadline(item.title, runId);
     if (!completed) break;
     state.lastCompletedHeadlineIndex = state.currentHeadlineIndex % state.headlines.length;
-    saveProgressToCookie();
+    savePlaybackState();
     state.currentHeadlineIndex += 1;
     state.currentUnitIndex = 0;
     state.lastSentUnitIndex = -1;
@@ -250,8 +293,10 @@ async function playLoop(runId) {
   state.loopRunning = false;
 }
 
-async function playHeadline(title, units, runId) {
-  for (let unitIndex = state.currentUnitIndex; unitIndex < units.length; unitIndex += 1) {
+async function playHeadline(title, runId) {
+  for (let unitIndex = state.currentUnitIndex; ; unitIndex += 1) {
+    const units = unitsForHeadline(title, state.speed);
+    if (unitIndex >= units.length) break;
     const unit = units[unitIndex];
     if (!state.playing || runId !== state.playbackRunId) return false;
     state.currentUnitIndex = unitIndex;
@@ -260,10 +305,7 @@ async function playHeadline(title, units, runId) {
     for (const event of unit.events) {
       if (!state.playing || runId !== state.playbackRunId) return false;
       setTone(event.on);
-      const remainingMs = remainingSessionMs();
-      const elapsed = state.durationMs - remainingMs;
-      els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
-      els.meter.style.width = `${Math.min(100, (elapsed / state.durationMs) * 100)}%`;
+      updatePlaybackStatus();
       await wait(event.ms);
     }
   }
@@ -360,48 +402,101 @@ function remainingSessionMs() {
   return Math.max(0, state.remainingMs - (performance.now() - state.segmentStartedAt));
 }
 
+function updatePlaybackStatus() {
+  const remainingMs = remainingSessionMs();
+  const elapsed = Math.max(0, state.durationMs - remainingMs);
+  const duration = Math.max(1, state.durationMs);
+  els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
+  els.meter.style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
+}
+
 function nextHeadlineIndex() {
   if (state.headlines.length === 0) return 0;
   return (state.lastCompletedHeadlineIndex + 1 + state.headlines.length) % state.headlines.length;
 }
 
 function updateHeadlineMarker() {
+  if (state.headlines.length === 0) return;
   const activeIndex = state.sessionActive
     ? state.currentHeadlineIndex % state.headlines.length
     : nextHeadlineIndex();
 
   els.headlines.querySelectorAll('li').forEach((item) => {
     const itemIndex = Number(item.dataset.headlineIndex);
-    item.classList.toggle('next-headline', Number.isFinite(activeIndex) && itemIndex === activeIndex);
+    const isActive = Number.isFinite(activeIndex) && itemIndex === activeIndex;
+    item.classList.toggle('next-headline', isActive);
+    if (isActive) item.setAttribute('aria-current', 'true');
+    else item.removeAttribute('aria-current');
   });
 }
 
-function restoreProgressFromCookie() {
-  state.lastCompletedHeadlineIndex = -1;
-  if (state.headlines.length === 0 || !state.payload?.fetchedAt) return;
+function restorePlaybackPreferences() {
+  const saved = readPlaybackState();
+  setSpeed(Number(saved?.speed) || state.speed, { persist: false });
+  setDurationMinutes(Number(saved?.durationMinutes) || Math.round(state.durationMs / 60000), { persist: false });
+}
 
-  const progress = readProgressCookie();
-  if (progress?.fetchedAt !== state.payload.fetchedAt) return;
-  const completedIndex = Number(progress.lastCompletedHeadlineIndex);
-  if (!Number.isInteger(completedIndex)) return;
-  if (completedIndex < 0 || completedIndex >= state.headlines.length) return;
+function restorePlaybackProgress() {
+  state.lastCompletedHeadlineIndex = -1;
+  if (state.headlines.length === 0) return;
+
+  const saved = readPlaybackState();
+  if (!saved) return;
+
+  const savedKey = String(saved.lastCompletedHeadlineKey || '');
+  let completedIndex = savedKey
+    ? state.headlines.findIndex((headline) => headlineKey(headline) === savedKey)
+    : -1;
+
+  if (completedIndex < 0 && saved.fetchedAt === state.payload?.fetchedAt) {
+    const savedIndex = Number(saved.lastCompletedHeadlineIndex);
+    if (Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < state.headlines.length) {
+      completedIndex = savedIndex;
+    }
+  }
+
+  if (completedIndex < 0) return;
 
   state.lastCompletedHeadlineIndex = completedIndex;
   state.currentHeadlineIndex = nextHeadlineIndex();
 }
 
-function saveProgressToCookie() {
-  if (!state.payload?.fetchedAt) return;
-  const progress = {
-    fetchedAt: state.payload.fetchedAt,
+function savePlaybackState() {
+  const completedHeadline = state.headlines[state.lastCompletedHeadlineIndex];
+  const playbackState = {
+    version: 1,
+    speed: state.speed,
+    durationMinutes: Math.round(state.durationMs / 60000),
+    fetchedAt: state.payload?.fetchedAt ?? '',
     lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
+    lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
   };
-  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
-  document.cookie = `${PROGRESS_COOKIE}=${encodeURIComponent(JSON.stringify(progress))}; expires=${expires}; path=/; SameSite=Lax`;
+
+  const encoded = encodeURIComponent(JSON.stringify(playbackState));
+  document.cookie = `${PLAYBACK_STATE_COOKIE}=${encoded}; max-age=${PLAYBACK_STATE_MAX_AGE_SECONDS}; path=/; SameSite=Lax`;
+
+  try {
+    localStorage.setItem(PLAYBACK_STATE_STORAGE_KEY, JSON.stringify(playbackState));
+  } catch (error) {
+    console.warn('Could not save Morse playback state to localStorage', error);
+  }
 }
 
-function readProgressCookie() {
-  const prefix = `${PROGRESS_COOKIE}=`;
+function readPlaybackState() {
+  const fromCookie = readPlaybackStateCookie();
+  if (fromCookie) return fromCookie;
+
+  try {
+    const value = localStorage.getItem(PLAYBACK_STATE_STORAGE_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch (error) {
+    console.warn('Could not read Morse playback state from localStorage', error);
+    return null;
+  }
+}
+
+function readPlaybackStateCookie() {
+  const prefix = `${PLAYBACK_STATE_COOKIE}=`;
   const cookie = document.cookie
     .split('; ')
     .find((item) => item.startsWith(prefix));
@@ -410,9 +505,18 @@ function readProgressCookie() {
   try {
     return JSON.parse(decodeURIComponent(cookie.slice(prefix.length)));
   } catch (error) {
-    console.warn('Could not read Morse progress cookie', error);
+    console.warn('Could not read Morse playback state cookie', error);
     return null;
   }
+}
+
+function headlineKey(item) {
+  return [
+    item?.title ?? '',
+    item?.source ?? '',
+    item?.category ?? '',
+    item?.link ?? '',
+  ].map((value) => String(value).trim().toLowerCase()).join('|');
 }
 
 function escapeHtml(value) {

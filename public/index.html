@@ -11,7 +11,7 @@
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.07</span></h1>
+      <h1>Morse News <span id="version">v 1.08</span></h1>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
 
@@ -47,12 +47,8 @@
         <button id="start" class="primary">Start practice</button>
         <button id="stop" disabled>Stop</button>
       </div>
-    </section>
 
-    <section class="panel now-playing" aria-live="polite">
-      <p class="eyebrow">Now sending</p>
-      <h2 id="current-title">Ready when you are</h2>
-      <p id="progress" class="muted">Pick a speed and start a session.</p>
+      <p id="progress" class="muted progress-line" aria-live="polite">Pick a speed and start a session.</p>
       <div class="meter"><span id="meter-fill"></span></div>
     </section>
 

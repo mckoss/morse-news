@@ -104,9 +104,10 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 output { color: var(--text); }
 
-.now-playing h2 {
-  min-height: 3.2em;
-  line-height: 1.35;
+.progress-line {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 0.92rem;
 }
 
 .meter {
@@ -147,16 +148,18 @@ output { color: var(--text); }
   margin: 0;
   padding-left: 1.35rem;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .headline-list li {
-  padding-left: 4px;
+  padding: 8px 10px;
   border-left: 3px solid transparent;
+  border-radius: 8px;
 }
 
 .headline-list li.next-headline {
-  color: #f6d85f;
+  color: #fff5bd;
+  background: rgb(246 216 95 / 0.16);
   border-left-color: #f6d85f;
 }
 
@@ -174,5 +177,5 @@ output { color: var(--text); }
     align-items: start;
   }
   .hero, .controls { grid-column: 1; }
-  .now-playing, .panel:last-child { grid-column: 2; }
+  .panel:last-child { grid-column: 2; }
 }
