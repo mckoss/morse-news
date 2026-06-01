@@ -1,7 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const CACHE_DIR = path.resolve('data');
+export function resolveDataDir(env = process.env) {
+  return path.resolve(env.DATA_DIR || env.RAILWAY_VOLUME_MOUNT_PATH || 'data');
+}
+
+const CACHE_DIR = resolveDataDir();
 const CACHE_FILE = path.join(CACHE_DIR, 'headlines-cache.json');
 const ARCHIVE_FILE = path.join(CACHE_DIR, 'headlines-archive.json');
 const MAX_HEADLINES = 24;

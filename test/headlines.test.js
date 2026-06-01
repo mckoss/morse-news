@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeHeadline, parseRssItems, parseRssTitles } from '../src/headlines.js';
+import { normalizeHeadline, parseRssItems, parseRssTitles, resolveDataDir } from '../src/headlines.js';
 
 test('parseRssTitles extracts and decodes item titles', () => {
   const xml = `<?xml version="1.0"?><rss><channel>
@@ -29,4 +29,11 @@ test('parseRssItems extracts links and categories', () => {
 
 test('normalizeHeadline tidies punctuation and whitespace', () => {
   assert.equal(normalizeHeadline('  “Hello”   —   world  '), '"Hello" - world');
+});
+
+test('resolveDataDir prefers persistent Railway volume paths with local fallback', () => {
+  assert.equal(resolveDataDir({ DATA_DIR: '/persistent/data' }), '/persistent/data');
+  assert.equal(resolveDataDir({ RAILWAY_VOLUME_MOUNT_PATH: '/app/data' }), '/app/data');
+  assert.equal(resolveDataDir({ DATA_DIR: 'tmp/news-data' }), process.cwd() + '/tmp/news-data');
+  assert.equal(resolveDataDir({}), process.cwd() + '/data');
 });

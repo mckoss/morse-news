@@ -26,3 +26,7 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 ## Notes
 
 This intentionally avoids a build step. The frontend is plain HTML/CSS/JS and the server is a small Express app.
+
+Headline cache and archive files are written to `DATA_DIR`, then `RAILWAY_VOLUME_MOUNT_PATH`,
+then local `./data` as a fallback. For Railway persistence across deploys, mount a Railway
+Volume at `/app/data`; local development will keep using the repo's `data/` directory.
