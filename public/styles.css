@@ -51,8 +51,9 @@ h1 { margin-bottom: 8px; font-size: clamp(2.3rem, 12vw, 5rem); line-height: 0.9;
   display: inline-block;
   margin-left: 0.4rem;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 8px;
   font-weight: 800;
+  letter-spacing: 0;
   vertical-align: super;
 }
 h2 { margin-bottom: 10px; font-size: 1.2rem; }
