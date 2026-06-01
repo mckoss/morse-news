@@ -8,6 +8,9 @@ const MORSE = {
   '+': '.-.-.', '-': '-....-', '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.'
 };
 
+const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
+const MESSAGE_GAP_MS = 5000;
+
 const state = {
   headlines: [],
   speed: 5,
@@ -118,7 +121,7 @@ async function playLoop() {
   while (state.playing && performance.now() - state.startedAt < state.durationMs) {
     const item = state.headlines[i % state.headlines.length];
     els.currentTitle.textContent = item.title;
-    await playText(item.title, tokensForText(item.title, state.speed));
+    await playText(item.title, tokensForHeadline(item.title, state.speed));
     i += 1;
   }
 
@@ -137,6 +140,14 @@ async function playText(title, events) {
     els.meter.style.width = `${Math.min(100, (elapsed / state.durationMs) * 100)}%`;
     await wait(event.ms);
   }
+}
+
+function tokensForHeadline(text, effectiveWpm) {
+  return [
+    ...tokensForText(text, effectiveWpm),
+    ...tokensForProsign(END_OF_MESSAGE_PROSIGN, effectiveWpm),
+    { on: false, ms: MESSAGE_GAP_MS },
+  ];
 }
 
 function tokensForText(text, effectiveWpm) {
@@ -160,6 +171,20 @@ function tokensForText(text, effectiveWpm) {
     if (wordIndex < words.length - 1) events.push({ on: false, ms: spacingUnit * 7 });
   });
   events.push({ on: false, ms: spacingUnit * 10 });
+  return events;
+}
+
+function tokensForProsign(code, effectiveWpm) {
+  const characterWpm = 20;
+  const charUnit = 1200 / characterWpm;
+  const spacingUnit = 1200 / Math.min(effectiveWpm, characterWpm);
+  const events = [{ on: false, ms: spacingUnit * 7 }];
+
+  [...code].forEach((symbol, symbolIndex) => {
+    events.push({ on: true, ms: symbol === '.' ? charUnit : charUnit * 3 });
+    if (symbolIndex < code.length - 1) events.push({ on: false, ms: charUnit });
+  });
+
   return events;
 }
 
