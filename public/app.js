@@ -10,6 +10,7 @@ const MORSE = {
 
 const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 const MESSAGE_GAP_MS = 5000;
+const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
 
 const state = {
@@ -18,11 +19,17 @@ const state = {
   historyIndex: 0,
   speed: 5,
   playing: false,
+  sessionActive: false,
   audio: null,
   oscillator: null,
   gain: null,
   timeout: null,
+  waitResolve: null,
+  currentHeadlineIndex: 0,
+  loopRunning: false,
   startedAt: 0,
+  segmentStartedAt: 0,
+  remainingMs: 15 * 60 * 1000,
   durationMs: 15 * 60 * 1000,
 };
 
@@ -57,10 +64,11 @@ els.frequency.addEventListener('input', () => {
 
 els.minutes.addEventListener('change', () => {
   state.durationMs = Number(els.minutes.value) * 60 * 1000;
+  if (!state.playing && !state.sessionActive) state.remainingMs = state.durationMs;
 });
 
 els.start.addEventListener('click', startPractice);
-els.stop.addEventListener('click', stopPractice);
+els.stop.addEventListener('click', togglePauseResume);
 els.refresh.addEventListener('click', () => loadHeadlines({ force: true, forceUi: true, index: 0 }));
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
@@ -121,23 +129,72 @@ function updateSnapshotControls() {
 }
 
 async function startPractice() {
-  if (state.playing || state.headlines.length === 0) return;
-  state.playing = true;
-  state.startedAt = performance.now();
+  if (state.playing || state.sessionActive || state.headlines.length === 0) return;
   state.durationMs = Number(els.minutes.value) * 60 * 1000;
+  state.remainingMs = state.durationMs;
+  state.currentHeadlineIndex = 0;
+  state.sessionActive = true;
+  await startPlayback({ delayMs: START_DELAY_MS, message: 'Starting in 2 seconds…' });
+}
+
+async function togglePauseResume() {
+  if (state.playing) {
+    pausePractice();
+    return;
+  }
+
+  if (state.sessionActive) {
+    await startPlayback({ delayMs: START_DELAY_MS, message: 'Resuming in 2 seconds…' });
+  }
+}
+
+async function startPlayback({ delayMs = 0, message = '' } = {}) {
+  if (state.playing || !state.sessionActive || state.headlines.length === 0) return;
+
+  state.playing = true;
+  state.segmentStartedAt = performance.now();
+  if (!state.startedAt) state.startedAt = state.segmentStartedAt;
   els.start.disabled = true;
   els.stop.disabled = false;
+  els.stop.textContent = 'Stop';
   await ensureAudio();
+
+  if (delayMs > 0) {
+    setTone(false);
+    els.currentTitle.textContent = state.headlines[state.currentHeadlineIndex % state.headlines.length]?.title ?? 'Ready';
+    els.progress.textContent = message;
+    await wait(delayMs);
+  }
+
+  if (!state.playing) return;
+  state.segmentStartedAt = performance.now();
   playLoop();
 }
 
-function stopPractice() {
+function pausePractice() {
+  state.remainingMs = remainingSessionMs();
   state.playing = false;
-  clearTimeout(state.timeout);
+  cancelWait();
+  setTone(false);
+  els.start.disabled = true;
+  els.stop.disabled = false;
+  els.stop.textContent = 'Resume';
+  els.progress.textContent = 'Paused.';
+}
+
+function finishPractice(message) {
+  state.playing = false;
+  state.sessionActive = false;
+  state.loopRunning = false;
+  state.startedAt = 0;
+  state.segmentStartedAt = 0;
+  state.remainingMs = state.durationMs;
+  cancelWait();
   setTone(false);
   els.start.disabled = false;
   els.stop.disabled = true;
-  els.progress.textContent = 'Stopped.';
+  els.stop.textContent = 'Stop';
+  els.progress.textContent = message;
 }
 
 async function ensureAudio() {
@@ -155,30 +212,36 @@ async function ensureAudio() {
 }
 
 async function playLoop() {
-  let i = 0;
+  if (state.loopRunning) return;
+  state.loopRunning = true;
 
-  while (state.playing && performance.now() - state.startedAt < state.durationMs) {
-    const item = state.headlines[i % state.headlines.length];
+  while (state.playing && remainingSessionMs() > 0) {
+    const item = state.headlines[state.currentHeadlineIndex % state.headlines.length];
     els.currentTitle.textContent = item.title;
-    await playText(item.title, tokensForHeadline(item.title, state.speed));
-    i += 1;
+    const completed = await playText(item.title, tokensForHeadline(item.title, state.speed));
+    if (!completed) break;
+    state.currentHeadlineIndex += 1;
   }
 
   if (state.playing) {
-    stopPractice();
-    els.progress.textContent = 'Session complete.';
+    finishPractice('Session complete.');
+    return;
   }
+
+  state.loopRunning = false;
 }
 
 async function playText(title, events) {
   for (const event of events) {
-    if (!state.playing) return;
+    if (!state.playing) return false;
     setTone(event.on);
-    const elapsed = performance.now() - state.startedAt;
-    els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil((state.durationMs - elapsed) / 60000))} min left`;
+    const remainingMs = remainingSessionMs();
+    const elapsed = state.durationMs - remainingMs;
+    els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
     els.meter.style.width = `${Math.min(100, (elapsed / state.durationMs) * 100)}%`;
     await wait(event.ms);
   }
+  return true;
 }
 
 function tokensForHeadline(text, effectiveWpm) {
@@ -245,8 +308,26 @@ function setTone(on) {
 
 function wait(ms) {
   return new Promise((resolve) => {
-    state.timeout = setTimeout(resolve, ms);
+    state.waitResolve = resolve;
+    state.timeout = setTimeout(() => {
+      state.timeout = null;
+      state.waitResolve = null;
+      resolve();
+    }, ms);
   });
+}
+
+function cancelWait() {
+  clearTimeout(state.timeout);
+  state.timeout = null;
+  const resolve = state.waitResolve;
+  state.waitResolve = null;
+  if (resolve) resolve();
+}
+
+function remainingSessionMs() {
+  if (!state.playing) return state.remainingMs;
+  return Math.max(0, state.remainingMs - (performance.now() - state.segmentStartedAt));
 }
 
 function escapeHtml(value) {
