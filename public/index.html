@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <title>Morse News</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <p class="eyebrow">Daily CW practice</p>
+      <h1>Morse News</h1>
+      <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
+    </section>
+
+    <section class="panel controls" aria-labelledby="practice-heading">
+      <div>
+        <h2 id="practice-heading">Practice</h2>
+        <p id="headline-count" class="muted">Loading headlines…</p>
+      </div>
+
+      <div class="speed-grid" role="group" aria-label="Practice speed">
+        <button class="speed active" data-speed="5">5 WPM</button>
+        <button class="speed" data-speed="10">10 WPM</button>
+        <button class="speed" data-speed="15">15 WPM</button>
+        <button class="speed" data-speed="20">20 WPM</button>
+      </div>
+
+      <label class="field">
+        <span>Session length</span>
+        <select id="minutes">
+          <option value="5">5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15" selected>15 minutes</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Tone</span>
+        <input id="frequency" type="range" min="400" max="900" step="25" value="650">
+        <output id="frequency-label">650 Hz</output>
+      </label>
+
+      <div class="button-row">
+        <button id="start" class="primary">Start practice</button>
+        <button id="stop" disabled>Stop</button>
+      </div>
+    </section>
+
+    <section class="panel now-playing" aria-live="polite">
+      <p class="eyebrow">Now sending</p>
+      <h2 id="current-title">Ready when you are</h2>
+      <p id="progress" class="muted">Pick a speed and start a session.</p>
+      <div class="meter"><span id="meter-fill"></span></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>Today’s headlines</h2>
+        <button id="refresh" class="quiet">Refresh</button>
+      </div>
+      <ol id="headlines" class="headline-list"></ol>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
