@@ -6,7 +6,10 @@ const port = process.env.PORT || 3000;
 
 app.use(express.static('public', {
   etag: true,
-  maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+  maxAge: 0,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+  },
 }));
 
 app.get('/api/headlines', async (req, res) => {

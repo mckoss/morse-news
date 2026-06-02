@@ -31,6 +31,7 @@ const state = {
   sessionActive: false,
   audio: null,
   oscillator: null,
+  oscillatorStarted: false,
   gain: null,
   timeout: null,
   waitResolve: null,
@@ -220,7 +221,18 @@ async function startPlayback({ delayMs = 0, message = '' } = {}) {
   els.start.disabled = false;
   els.stop.disabled = false;
   els.stop.textContent = 'Stop';
-  await ensureAudio();
+  try {
+    await ensureAudio();
+  } catch (error) {
+    console.error(error);
+    state.playing = false;
+    state.playbackRunId += 1;
+    els.start.disabled = false;
+    els.stop.disabled = true;
+    els.stop.textContent = 'Stop';
+    els.progress.textContent = 'Could not start audio in this browser.';
+    return;
+  }
 
   if (delayMs > 0) {
     setTone(false);
@@ -273,11 +285,15 @@ async function ensureAudio() {
     state.gain = state.audio.createGain();
     state.oscillator.type = 'sine';
     state.oscillator.frequency.value = Number(els.frequency.value);
-    state.gain.gain.value = 0;
+    state.gain.gain.value = 0.0001;
     state.oscillator.connect(state.gain).connect(state.audio.destination);
-    state.oscillator.start();
   }
   if (state.audio.state !== 'running') await state.audio.resume();
+  if (state.audio.state !== 'running') throw new Error(`Audio context is ${state.audio.state}`);
+  if (!state.oscillatorStarted) {
+    state.oscillator.start();
+    state.oscillatorStarted = true;
+  }
 }
 
 async function playLoop(runId) {
@@ -469,6 +485,7 @@ function savePlaybackState() {
     fetchedAt: state.payload?.fetchedAt ?? '',
     lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
     lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
+    updatedAt: Date.now(),
   };
 
   const encoded = encodeURIComponent(JSON.stringify(playbackState));
@@ -483,15 +500,14 @@ function savePlaybackState() {
 
 function readPlaybackState() {
   const fromCookie = readPlaybackStateCookie();
-  if (fromCookie) return fromCookie;
+  const fromStorage = readPlaybackStateStorage();
 
-  try {
-    const value = localStorage.getItem(PLAYBACK_STATE_STORAGE_KEY);
-    return value ? JSON.parse(value) : null;
-  } catch (error) {
-    console.warn('Could not read Morse playback state from localStorage', error);
-    return null;
-  }
+  if (!fromCookie) return fromStorage;
+  if (!fromStorage) return fromCookie;
+
+  return Number(fromStorage.updatedAt || 0) > Number(fromCookie.updatedAt || 0)
+    ? fromStorage
+    : fromCookie;
 }
 
 function readPlaybackStateCookie() {
@@ -505,6 +521,16 @@ function readPlaybackStateCookie() {
     return JSON.parse(decodeURIComponent(cookie.slice(prefix.length)));
   } catch (error) {
     console.warn('Could not read Morse playback state cookie', error);
+    return null;
+  }
+}
+
+function readPlaybackStateStorage() {
+  try {
+    const value = localStorage.getItem(PLAYBACK_STATE_STORAGE_KEY);
+    return value ? JSON.parse(value) : null;
+  } catch (error) {
+    console.warn('Could not read Morse playback state from localStorage', error);
     return null;
   }
 }

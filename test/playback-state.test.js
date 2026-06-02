@@ -54,4 +54,18 @@ test('audio setup creates one compatible Web Audio context', async () => {
   assert.match(appJs, /window\.AudioContext \|\| window\.webkitAudioContext/);
   assert.equal((appJs.match(/new AudioCtor\(\)/g) ?? []).length, 1);
   assert.equal((appJs.match(/new AudioContext\(\)/g) ?? []).length, 0);
+  assert.match(appJs, /await state\.audio\.resume\(\)/);
+  assert.match(appJs, /state\.audio\.state !== 'running'/);
+  assert.match(appJs, /state\.oscillator\.start\(\)/);
+  assert.match(appJs, /state\.oscillatorStarted = true/);
+  assert.match(appJs, /Could not start audio in this browser/);
+});
+
+test('playback preferences can recover from stale cookie or storage state', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /readPlaybackStateCookie\(\)/);
+  assert.match(appJs, /readPlaybackStateStorage\(\)/);
+  assert.match(appJs, /updatedAt:\s*Date\.now\(\)/);
+  assert.match(appJs, /Number\(fromStorage\.updatedAt \|\| 0\) > Number\(fromCookie\.updatedAt \|\| 0\)/);
 });
