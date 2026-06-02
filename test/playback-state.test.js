@@ -66,6 +66,8 @@ test('playback preferences can recover from stale cookie or storage state', asyn
 
   assert.match(appJs, /readPlaybackStateCookie\(\)/);
   assert.match(appJs, /readPlaybackStateStorage\(\)/);
+  assert.match(appJs, /setFrequency\(Number\(saved\?\.frequencyHz\)/);
+  assert.match(appJs, /frequencyHz:\s*Number\(els\.frequency\.value\)/);
   assert.match(appJs, /updatedAt:\s*Date\.now\(\)/);
   assert.match(appJs, /Number\(fromStorage\.updatedAt \|\| 0\) > Number\(fromCookie\.updatedAt \|\| 0\)/);
 });

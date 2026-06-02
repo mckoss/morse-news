@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.11<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.11"/);
-  assert.match(html, /src="\/app\.js\?v=1\.11"/);
+  assert.match(html, /<span id="version">v 1\.12<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.12"/);
+  assert.match(html, /src="\/app\.js\?v=1\.12"/);
 });
 
 test('static assets revalidate instead of sticking in mobile browser cache', async () => {

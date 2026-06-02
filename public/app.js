@@ -70,8 +70,7 @@ document.querySelectorAll('.speed').forEach((button) => {
 });
 
 els.frequency.addEventListener('input', () => {
-  els.frequencyLabel.textContent = `${els.frequency.value} Hz`;
-  if (state.oscillator) state.oscillator.frequency.value = Number(els.frequency.value);
+  setFrequency(Number(els.frequency.value));
 });
 
 els.minutes.addEventListener('change', () => {
@@ -142,6 +141,19 @@ function setDurationMinutes(minutes, { persist = true } = {}) {
   }
 
   updatePlaybackStatus();
+  if (persist) savePlaybackState();
+}
+
+function setFrequency(frequency, { persist = true } = {}) {
+  const min = Number(els.frequency.min);
+  const max = Number(els.frequency.max);
+  const step = Number(els.frequency.step) || 1;
+  if (!Number.isFinite(frequency) || frequency < min || frequency > max) return;
+  if ((frequency - min) % step !== 0) return;
+
+  els.frequency.value = String(frequency);
+  els.frequencyLabel.textContent = `${frequency} Hz`;
+  if (state.oscillator) state.oscillator.frequency.value = frequency;
   if (persist) savePlaybackState();
 }
 
@@ -460,6 +472,7 @@ function restorePlaybackPreferences() {
   const saved = readPlaybackState();
   setSpeed(Number(saved?.speed) || state.speed, { persist: false });
   setDurationMinutes(Number(saved?.durationMinutes) || Math.round(state.durationMs / 60000), { persist: false });
+  setFrequency(Number(saved?.frequencyHz) || Number(els.frequency.value), { persist: false });
 }
 
 function restorePlaybackProgress() {
@@ -482,6 +495,7 @@ function savePlaybackState() {
     version: 1,
     speed: state.speed,
     durationMinutes: Math.round(state.durationMs / 60000),
+    frequencyHz: Number(els.frequency.value),
     fetchedAt: state.payload?.fetchedAt ?? '',
     lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
     lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
