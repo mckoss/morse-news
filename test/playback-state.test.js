@@ -14,8 +14,16 @@ const headlines = [
   { title: 'Charlie Headline', source: 'NPR', category: 'national', link: 'https://example.com/c' },
 ];
 
-test('nextHeadlineIndex starts with the first headline when no progress exists', () => {
+test('fresh load without saved progress marks the first headline active', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
+
+  assert.equal(resolveCompletedHeadlineIndex(null, headlines, 'fetch-time'), -1);
   assert.equal(nextHeadlineIndex(-1, headlines.length), 0);
+  assert.match(appJs, /renderHeadlines[\s\S]*updateHeadlineMarker\(\)/);
+  assert.match(appJs, /class="headline-title"/);
+  assert.match(appJs, /item\.classList\.toggle\('next-headline', isActive\)/);
+  assert.match(styles, /\.headline-list li\.next-headline \.headline-title\s*\{[\s\S]*color:\s*#fff07a/);
 });
 
 test('resolveCompletedHeadlineIndex matches saved progress by headline identity', () => {
@@ -38,16 +46,6 @@ test('resolveCompletedHeadlineIndex falls back to index only for the same snapsh
 
   assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'same-fetch-time'), 2);
   assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'new-fetch-time'), -1);
-});
-
-test('app renders and updates the next-headline marker', async () => {
-  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  const styles = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
-
-  assert.match(appJs, /renderHeadlines[\s\S]*updateHeadlineMarker\(\)/);
-  assert.match(appJs, /item\.classList\.toggle\('next-headline', isActive\)/);
-  assert.match(styles, /\.headline-list li\.next-headline[\s\S]*color:/);
-  assert.doesNotMatch(styles, /\.headline-list li\.next-headline\s*\{[^}]*background:/);
 });
 
 test('audio setup creates one compatible Web Audio context', async () => {

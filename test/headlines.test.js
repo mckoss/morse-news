@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeHeadline, parseRssItems, parseRssTitles, resolveDataDir } from '../src/headlines.js';
+import {
+  excludePreviousSnapshotHeadlines,
+  normalizeHeadline,
+  parseRssItems,
+  parseRssTitles,
+  resolveDataDir,
+} from '../src/headlines.js';
 
 test('parseRssTitles extracts and decodes item titles', () => {
   const xml = `<?xml version="1.0"?><rss><channel>
@@ -36,4 +42,23 @@ test('resolveDataDir prefers persistent Railway volume paths with local fallback
   assert.equal(resolveDataDir({ RAILWAY_VOLUME_MOUNT_PATH: '/app/data' }), '/app/data');
   assert.equal(resolveDataDir({ DATA_DIR: 'tmp/news-data' }), process.cwd() + '/tmp/news-data');
   assert.equal(resolveDataDir({}), process.cwd() + '/data');
+});
+
+test('excludePreviousSnapshotHeadlines removes items from the previous current set', () => {
+  const previousSnapshot = {
+    headlines: [
+      { title: 'Alpha Headline', source: 'NPR News', category: 'national' },
+      { title: 'Bravo Headline!', source: 'New York Times', category: 'general' },
+    ],
+  };
+
+  const nextItems = [
+    { title: 'Alpha headline', source: 'NPR News', category: 'national' },
+    { title: 'New science discovery', source: 'ScienceDaily', category: 'science' },
+    { title: 'Bravo Headline', source: 'The Guardian', category: 'world' },
+  ];
+
+  assert.deepEqual(excludePreviousSnapshotHeadlines(nextItems, previousSnapshot), [
+    { title: 'New science discovery', source: 'ScienceDaily', category: 'science' },
+  ]);
 });

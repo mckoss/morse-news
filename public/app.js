@@ -149,7 +149,7 @@ function renderHeadlines(payload) {
   updateSnapshotControls();
   els.headlines.innerHTML = state.headlines.map((item, index) => `
     <li data-headline-index="${index}">
-      ${escapeHtml(item.title)}
+      <span class="headline-title">${escapeHtml(item.title)}</span>
       <small>
         ${escapeHtml(item.source)} · ${escapeHtml(item.category)}
         ${item.link ? ` · <a href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}

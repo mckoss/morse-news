@@ -53,7 +53,7 @@ export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
     .flatMap((result) => result.status === 'fulfilled' ? result.value : [])
     .filter((item) => item.title.length >= 8);
 
-  const unique = dedupe(items).slice(0, MAX_HEADLINES);
+  const unique = excludePreviousSnapshotHeadlines(dedupe(items), cached).slice(0, MAX_HEADLINES);
   if (unique.length === 0 && cached) {
     const archive = await getArchive(now, cached);
     return withArchive({ ...cached, stale: true }, archive, 0, now);
@@ -156,13 +156,24 @@ function dedupe(items) {
   const seen = new Set();
   const out = [];
   for (const item of items) {
-    const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80);
+    const key = headlineDedupeKey(item);
     if (!seen.has(key)) {
       seen.add(key);
       out.push(item);
     }
   }
   return out;
+}
+
+export function excludePreviousSnapshotHeadlines(items, previousSnapshot) {
+  if (!previousSnapshot || !Array.isArray(previousSnapshot.headlines)) return items;
+
+  const previousKeys = new Set(previousSnapshot.headlines.map(headlineDedupeKey));
+  return items.filter((item) => !previousKeys.has(headlineDedupeKey(item)));
+}
+
+function headlineDedupeKey(item) {
+  return String(item?.title ?? '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 80);
 }
 
 async function getArchive(now, current = null) {

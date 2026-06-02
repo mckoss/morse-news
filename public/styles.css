@@ -152,14 +152,14 @@ output { color: var(--text); }
 }
 
 .headline-list li {
-  padding: 8px 10px;
-  border-left: 3px solid transparent;
-  border-radius: 8px;
+  padding: 6px 0;
 }
 
-.headline-list li.next-headline {
+.headline-title { color: inherit; }
+
+.headline-list li.next-headline .headline-title {
   color: #fff07a;
-  border-left-color: #f6d85f;
+  font-weight: 900;
 }
 
 .headline-list li.next-headline small {
