@@ -30,6 +30,8 @@ const state = {
   lastSentUnitIndex: -1,
   playbackRunId: 0,
   loopRunning: false,
+  castReady: false,
+  castingSpeed: null,
   startedAt: 0,
   segmentStartedAt: 0,
   remainingMs: 15 * 60 * 1000,
@@ -44,7 +46,9 @@ const els = {
   start: document.querySelector('#start'),
   stop: document.querySelector('#stop'),
   refresh: document.querySelector('#refresh'),
-  cast: document.querySelector('#cast'),
+  castPanel: document.querySelector('#cast-panel'),
+  castSpeeds: [...document.querySelectorAll('.cast-speed')],
+  stopCast: document.querySelector('#stop-cast'),
   previous: document.querySelector('#previous'),
   next: document.querySelector('#next'),
   snapshotTime: document.querySelector('#snapshot-time'),
@@ -70,7 +74,10 @@ els.minutes.addEventListener('change', () => {
 els.start.addEventListener('click', startPractice);
 els.stop.addEventListener('click', togglePauseResume);
 els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true, index: 0 }));
-els.cast.addEventListener('click', castHeadline);
+els.castSpeeds.forEach((button) => {
+  button.addEventListener('click', () => castAllHeadlines(Number(button.dataset.castSpeed)));
+});
+els.stopCast.addEventListener('click', stopCasting);
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
 
@@ -151,6 +158,7 @@ function setFrequency(frequency, { persist = true } = {}) {
 function setupCast() {
   const maybeInitialize = (isAvailable) => {
     if (!isAvailable || !window.cast?.framework || !window.chrome?.cast?.media) return;
+    if (state.castReady) return;
 
     const context = cast.framework.CastContext.getInstance();
     context.setOptions({
@@ -158,23 +166,31 @@ function setupCast() {
       autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
     });
 
-    els.cast.classList.remove('hidden');
-    els.cast.disabled = false;
+    const sessionEventType = cast.framework.CastContextEventType?.SESSION_STATE_CHANGED;
+    if (sessionEventType) context.addEventListener(sessionEventType, updateCastSessionState);
+
+    state.castReady = true;
+    els.castPanel.classList.remove('hidden');
+    setCastButtonsDisabled(false);
+    updateCastSessionState();
   };
 
   window.addEventListener('morse-news-cast-ready', (event) => maybeInitialize(event.detail?.isAvailable));
   maybeInitialize(window.__morseNewsCastReady);
 }
 
-async function castHeadline() {
+async function castAllHeadlines(speedWpm) {
   if (!window.cast?.framework || !window.chrome?.cast?.media) return;
 
-  els.cast.disabled = true;
-  els.progress.textContent = 'Preparing cast audio…';
+  setCastButtonsDisabled(true);
+  setCastingSpeed(speedWpm);
+  els.progress.textContent = `Starting Cast at ${speedWpm} WPM…`;
   try {
     const metadataResponse = await fetch('/api/cast-audio', { cache: 'no-store' });
     if (!metadataResponse.ok) throw new Error(`HTTP ${metadataResponse.status}`);
-    const metadata = await metadataResponse.json();
+    const manifest = await metadataResponse.json();
+    const media = manifest.speeds?.find((entry) => entry.speedWpm === speedWpm);
+    if (!media?.mediaUrl) throw new Error(`No ${speedWpm} WPM cast media`);
 
     const context = cast.framework.CastContext.getInstance();
     let session = context.getCurrentSession();
@@ -182,21 +198,65 @@ async function castHeadline() {
       session = await context.requestSession();
     }
 
-    const mediaInfo = new chrome.cast.media.MediaInfo(metadata.mediaUrl, metadata.contentType);
+    const mediaInfo = new chrome.cast.media.MediaInfo(media.mediaUrl, media.contentType);
     mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
-    mediaInfo.metadata.title = 'Morse News';
-    mediaInfo.metadata.subtitle = `${metadata.headlineTitle} · ${metadata.speedWpm} WPM · ${metadata.frequencyHz} Hz`;
+    mediaInfo.metadata.title = `Morse News - ${speedWpm} WPM`;
+    mediaInfo.metadata.subtitle = `${manifest.headlineCount} headlines · ${manifest.frequencyHz} Hz`;
     mediaInfo.streamType = chrome.cast.media.StreamType.BUFFERED;
+    mediaInfo.duration = Math.round(media.durationMs / 1000);
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     await session.loadMedia(request);
-    els.progress.textContent = 'Casting first headline.';
+    els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
+    setCastingSpeed(null);
     els.progress.textContent = 'Could not start Cast playback.';
   } finally {
-    els.cast.disabled = false;
+    setCastButtonsDisabled(false);
   }
+}
+
+async function stopCasting() {
+  if (!window.cast?.framework) return;
+
+  const session = cast.framework.CastContext.getInstance().getCurrentSession();
+  if (!session) {
+    setCastingSpeed(null);
+    return;
+  }
+
+  els.stopCast.disabled = true;
+  try {
+    await session.endSession(true);
+    setCastingSpeed(null);
+    els.progress.textContent = 'Cast stopped.';
+  } catch (error) {
+    console.error(error);
+    els.progress.textContent = 'Could not stop Cast playback.';
+  } finally {
+    els.stopCast.disabled = false;
+  }
+}
+
+function updateCastSessionState() {
+  if (!window.cast?.framework) return;
+  const session = cast.framework.CastContext.getInstance().getCurrentSession();
+  if (!session) setCastingSpeed(null);
+}
+
+function setCastButtonsDisabled(disabled) {
+  els.castSpeeds.forEach((button) => {
+    button.disabled = disabled || !state.castReady;
+  });
+}
+
+function setCastingSpeed(speedWpm) {
+  state.castingSpeed = speedWpm;
+  els.castSpeeds.forEach((button) => {
+    button.classList.toggle('casting', Number(button.dataset.castSpeed) === speedWpm);
+  });
+  els.stopCast.classList.toggle('hidden', !speedWpm);
 }
 
 function renderHeadlines(payload) {

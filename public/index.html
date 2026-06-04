@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101820">
   <title>Morse News</title>
-  <link rel="stylesheet" href="/styles.css?v=1.14">
+  <link rel="stylesheet" href="/styles.css?v=1.15">
 </head>
 <body>
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.14</span></h1>
+      <h1>Morse News <span id="version">v 1.15</span></h1>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
 
@@ -47,7 +47,25 @@
         <button id="start" class="primary">Start practice</button>
         <button id="stop" disabled>Stop</button>
       </div>
-      <button id="cast" class="quiet cast-button hidden" disabled>Cast headline</button>
+
+      <div id="cast-panel" class="cast-panel hidden" aria-label="Cast controls">
+        <div class="cast-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6.75A2.75 2.75 0 0 1 5.75 4h12.5A2.75 2.75 0 0 1 21 6.75v10.5A2.75 2.75 0 0 1 18.25 20H15v-2h3.25c.41 0 .75-.34.75-.75V6.75a.75.75 0 0 0-.75-.75H5.75a.75.75 0 0 0-.75.75V10H3V6.75Z"/>
+            <path d="M3 13.25V15a6 6 0 0 1 6 6h1.75A7.75 7.75 0 0 0 3 13.25Z"/>
+            <path d="M3 17v1.75A2.25 2.25 0 0 1 5.25 21H7A4 4 0 0 0 3 17Z"/>
+            <path d="M3 21h1.75A1.75 1.75 0 0 0 3 19.25V21Z"/>
+          </svg>
+          <span>Cast all headlines</span>
+        </div>
+        <div class="cast-speed-grid">
+          <button class="cast-speed" data-cast-speed="5" disabled>5 WPM</button>
+          <button class="cast-speed" data-cast-speed="10" disabled>10 WPM</button>
+          <button class="cast-speed" data-cast-speed="15" disabled>15 WPM</button>
+          <button class="cast-speed" data-cast-speed="20" disabled>20 WPM</button>
+        </div>
+        <button id="stop-cast" class="quiet stop-cast hidden">Stop casting</button>
+      </div>
 
       <p id="progress" class="muted progress-line" aria-live="polite">Pick a speed and start a session.</p>
       <div class="meter"><span id="meter-fill"></span></div>
@@ -75,6 +93,6 @@
     };
   </script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
-  <script src="/app.js?v=1.14" type="module"></script>
+  <script src="/app.js?v=1.15" type="module"></script>
 </body>
 </html>

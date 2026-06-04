@@ -93,9 +93,44 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 button.primary { background: var(--accent); color: #201504; }
 button.quiet { min-height: 0; padding: 9px 12px; color: var(--accent-2); }
 button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
-.cast-button {
-  justify-self: start;
+.cast-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid rgb(125 211 199 / 0.32);
+  background: rgb(255 255 255 / 0.035);
+}
+.cast-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-2);
+  font-weight: 900;
+}
+.cast-title svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  flex: 0 0 auto;
+}
+.cast-speed-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.cast-speed {
+  min-height: 42px;
+  padding: 9px 8px;
+  font-size: 0.88rem;
+}
+.cast-speed.casting {
+  outline: 3px solid var(--accent-2);
+  background: #263b4d;
+}
+.stop-cast {
+  justify-self: start;
+  color: #ffcf8a;
 }
 
 .field {
@@ -173,6 +208,12 @@ output { color: var(--text); }
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
 .headline-list a { color: var(--accent-2); font-weight: 800; }
 .hidden { display: none; }
+
+@media (max-width: 420px) {
+  .cast-speed-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
 
 @media (min-width: 760px) {
   .app-shell {

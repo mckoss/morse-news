@@ -6,13 +6,15 @@ import assert from 'node:assert/strict';
 import {
   buildCastAudioForSnapshot,
   castAudioFilePath,
+  CAST_AUDIO_CONTENT_TYPE,
   CAST_AUDIO_FREQUENCY_HZ,
-  CAST_AUDIO_SPEED_WPM,
+  CAST_AUDIO_SPEEDS_WPM,
   ensureCastAudioForSnapshot,
-  readCastAudioMetadata,
+  getCastAudioEntry,
+  readCastAudioManifest,
 } from '../src/cast-audio.js';
 
-test('buildCastAudioForSnapshot writes a cached WAV for the first headline', async () => {
+test('buildCastAudioForSnapshot writes cached MP3s for all headlines at each speed', async () => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morse-news-cast-'));
   const snapshot = {
     fetchedAt: '2026-06-04T13:05:00.000Z',
@@ -26,17 +28,23 @@ test('buildCastAudioForSnapshot writes a cached WAV for the first headline', asy
     dataDir,
     now: new Date('2026-06-04T14:00:00.000Z'),
   });
-  const wav = await fs.readFile(castAudioFilePath({ dataDir }));
-  const savedMetadata = await readCastAudioMetadata({ dataDir });
+  const savedMetadata = await readCastAudioManifest({ dataDir });
 
-  assert.equal(wav.subarray(0, 4).toString('ascii'), 'RIFF');
-  assert.equal(wav.subarray(8, 12).toString('ascii'), 'WAVE');
-  assert.equal(metadata.headlineTitle, 'First headline');
-  assert.equal(metadata.speedWpm, CAST_AUDIO_SPEED_WPM);
+  assert.equal(metadata.headlineCount, 2);
+  assert.equal(metadata.firstHeadlineTitle, 'First headline');
   assert.equal(metadata.frequencyHz, CAST_AUDIO_FREQUENCY_HZ);
-  assert.equal(savedMetadata.headlineTitle, 'First headline');
-  assert.equal(savedMetadata.bytes, wav.length);
-  assert.ok(metadata.durationMs > 1000);
+  assert.deepEqual(metadata.speeds.map((entry) => entry.speedWpm), CAST_AUDIO_SPEEDS_WPM);
+  assert.equal(savedMetadata.firstHeadlineTitle, 'First headline');
+
+  for (const speedWpm of CAST_AUDIO_SPEEDS_WPM) {
+    const entry = getCastAudioEntry(metadata, speedWpm);
+    const mp3 = await fs.readFile(castAudioFilePath(speedWpm, { dataDir }));
+
+    assert.equal(entry.contentType, CAST_AUDIO_CONTENT_TYPE);
+    assert.equal(entry.bytes, mp3.length);
+    assert.ok(entry.durationMs > 1000);
+    assert.equal(mp3.subarray(0, 3).toString('ascii'), 'ID3');
+  }
 });
 
 test('ensureCastAudioForSnapshot reuses a current cached media file', async () => {

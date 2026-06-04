@@ -22,6 +22,7 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 - Farnsworth timing: characters at 20 WPM, spacing stretched for slower selected speeds
 - 5/10/15 minute sessions
 - Adjustable sidetone frequency
+- Google Cast experiment: prebuilt MP3 streams for all headlines at 5/10/15/20 WPM
 
 ## Notes
 
@@ -35,3 +36,7 @@ The Express process owns headline refreshes. A server timer checks every 15 minu
 only when the cached snapshot is not from the current Pacific 6-hour window: midnight, 6 AM, noon,
 or 6 PM. Requests serve the current cache/archive and make sure the timer is running; they do not
 fetch RSS feeds inline.
+
+After each headline refresh, the server also prebuilds Cast media for the current headline set:
+mono MP3 at 48 kbps, 650 Hz, for 5/10/15/20 WPM. `/api/cast-audio` returns the manifest and
+`/api/cast-audio/:speedWpm.mp3` serves the cached media files.
