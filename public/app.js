@@ -10,6 +10,9 @@ const STALE_MS = 6 * 60 * 60 * 1000;
 const PLAYBACK_STATE_COOKIE = 'morseNewsPlaybackState';
 const PLAYBACK_STATE_STORAGE_KEY = 'morseNewsPlaybackState';
 const PLAYBACK_STATE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+const CAST_NEW_SESSION_READY_DELAY_MS = 2500;
+const CAST_LOAD_RETRY_DELAY_MS = 1500;
+const CAST_LOAD_ATTEMPTS = 4;
 
 const state = {
   headlines: [],
@@ -196,6 +199,8 @@ async function castAllHeadlines(speedWpm) {
     let session = context.getCurrentSession();
     if (!session) {
       session = await context.requestSession();
+      els.progress.textContent = `Connecting Cast at ${speedWpm} WPM…`;
+      await wait(CAST_NEW_SESSION_READY_DELAY_MS);
     }
 
     const mediaInfo = new chrome.cast.media.MediaInfo(media.mediaUrl, media.contentType);
@@ -206,7 +211,7 @@ async function castAllHeadlines(speedWpm) {
     mediaInfo.duration = Math.round(media.durationMs / 1000);
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
-    await loadCastMediaWithRetry(session, request);
+    await loadCastMediaWithRetry(() => context.getCurrentSession() || session, request);
     els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
@@ -217,10 +222,15 @@ async function castAllHeadlines(speedWpm) {
   }
 }
 
-async function loadCastMediaWithRetry(session, request, { attempts = 2, retryDelayMs = 900 } = {}) {
+async function loadCastMediaWithRetry(getSession, request, {
+  attempts = CAST_LOAD_ATTEMPTS,
+  retryDelayMs = CAST_LOAD_RETRY_DELAY_MS,
+} = {}) {
   let lastError = null;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
+      const session = getSession();
+      if (!session) throw new Error('No active Cast session');
       return await session.loadMedia(request);
     } catch (error) {
       lastError = error;
