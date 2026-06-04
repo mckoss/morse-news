@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101820">
   <title>Morse News</title>
-  <link rel="stylesheet" href="/styles.css?v=1.13">
+  <link rel="stylesheet" href="/styles.css?v=1.14">
 </head>
 <body>
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.13</span></h1>
+      <h1>Morse News <span id="version">v 1.14</span></h1>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
 
@@ -47,6 +47,7 @@
         <button id="start" class="primary">Start practice</button>
         <button id="stop" disabled>Stop</button>
       </div>
+      <button id="cast" class="quiet cast-button hidden" disabled>Cast headline</button>
 
       <p id="progress" class="muted progress-line" aria-live="polite">Pick a speed and start a session.</p>
       <div class="meter"><span id="meter-fill"></span></div>
@@ -66,6 +67,14 @@
     </section>
   </main>
 
-  <script src="/app.js?v=1.13" type="module"></script>
+  <script>
+    window.__morseNewsCastReady = false;
+    window.__onGCastApiAvailable = (isAvailable) => {
+      window.__morseNewsCastReady = isAvailable;
+      window.dispatchEvent(new CustomEvent('morse-news-cast-ready', { detail: { isAvailable } }));
+    };
+  </script>
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
+  <script src="/app.js?v=1.14" type="module"></script>
 </body>
 </html>

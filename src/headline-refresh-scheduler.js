@@ -1,3 +1,4 @@
+import { ensureCastAudioForSnapshot } from './cast-audio.js';
 import { fetchHeadlines, readHeadlineCache } from './headlines.js';
 
 export const HEADLINE_REFRESH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
@@ -36,6 +37,7 @@ export async function runHeadlineRefreshCheck({
   getNow = () => new Date(),
   readSnapshot = readHeadlineCache,
   refresh = fetchHeadlines,
+  ensureCastAudio = ensureCastAudioForSnapshot,
   logger = console,
 } = {}) {
   if (refreshCheckPromise) return { status: 'already-checking' };
@@ -44,12 +46,14 @@ export async function runHeadlineRefreshCheck({
     const now = getNow();
     const snapshot = await readSnapshot();
     if (isHeadlineSnapshotCurrent(snapshot, now)) {
+      await prepareCastAudio(snapshot, ensureCastAudio, logger);
       return { status: 'fresh', bucket: pacificSixHourBucket(now) };
     }
 
     refreshPromise = (async () => {
       logger.info?.(`[headlines] refreshing for Pacific bucket ${pacificSixHourBucket(now)}`);
-      await refresh({ force: true, now });
+      const refreshed = await refresh({ force: true, now });
+      await prepareCastAudio(refreshed ?? await readSnapshot(), ensureCastAudio, logger);
     })();
 
     try {
@@ -64,6 +68,14 @@ export async function runHeadlineRefreshCheck({
     return await refreshCheckPromise;
   } finally {
     refreshCheckPromise = null;
+  }
+}
+
+async function prepareCastAudio(snapshot, ensureCastAudio, logger) {
+  try {
+    await ensureCastAudio(snapshot);
+  } catch (error) {
+    logger.warn?.('[headlines] cast audio generation failed', error);
   }
 }
 

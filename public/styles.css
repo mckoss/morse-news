@@ -93,6 +93,10 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 button.primary { background: var(--accent); color: #201504; }
 button.quiet { min-height: 0; padding: 9px 12px; color: var(--accent-2); }
 button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
+.cast-button {
+  justify-self: start;
+  border: 1px solid rgb(125 211 199 / 0.32);
+}
 
 .field {
   display: grid;

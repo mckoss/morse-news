@@ -1,9 +1,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { resolveDataDir } from './data-dir.js';
 
-export function resolveDataDir(env = process.env) {
-  return path.resolve(env.DATA_DIR || env.RAILWAY_VOLUME_MOUNT_PATH || 'data');
-}
+export { resolveDataDir };
 
 const CACHE_DIR = resolveDataDir();
 const CACHE_FILE = path.join(CACHE_DIR, 'headlines-cache.json');
