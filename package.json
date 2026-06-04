@@ -1,6 +1,6 @@
 {
   "name": "morse-news",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "Daily news headline Morse code practice site using Farnsworth timing.",
   "type": "module",
   "scripts": {

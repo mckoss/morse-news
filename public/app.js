@@ -206,7 +206,7 @@ async function castAllHeadlines(speedWpm) {
     mediaInfo.duration = Math.round(media.durationMs / 1000);
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
-    await session.loadMedia(request);
+    await loadCastMediaWithRetry(session, request);
     els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
@@ -215,6 +215,20 @@ async function castAllHeadlines(speedWpm) {
   } finally {
     setCastButtonsDisabled(false);
   }
+}
+
+async function loadCastMediaWithRetry(session, request, { attempts = 2, retryDelayMs = 900 } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await session.loadMedia(request);
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) await wait(retryDelayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 async function stopCasting() {

@@ -44,12 +44,13 @@ app.get('/api/cast-audio', async (req, res) => {
   }
 
   const origin = `${req.protocol}://${req.get('host')}`;
-  res.set('Cache-Control', 'public, max-age=900');
+  const mediaVersion = encodeURIComponent(manifest.updatedAt || manifest.fetchedAt || Date.now());
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   res.json({
     ...manifest,
     speeds: manifest.speeds.map((entry) => ({
       ...entry,
-      mediaUrl: new URL(`/api/cast-audio/${entry.speedWpm}.mp3`, origin).href,
+      mediaUrl: new URL(`/api/cast-audio/${entry.speedWpm}.mp3?v=${mediaVersion}`, origin).href,
     })),
   });
 });
