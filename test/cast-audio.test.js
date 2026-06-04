@@ -9,6 +9,7 @@ import {
   CAST_AUDIO_CONTENT_TYPE,
   CAST_AUDIO_FREQUENCY_HZ,
   CAST_AUDIO_SPEEDS_WPM,
+  CAST_AUDIO_TIMING_VERSION,
   ensureCastAudioForSnapshot,
   getCastAudioEntry,
   readCastAudioManifest,
@@ -33,6 +34,7 @@ test('buildCastAudioForSnapshot writes cached MP3s for all headlines at each spe
   assert.equal(metadata.headlineCount, 2);
   assert.equal(metadata.firstHeadlineTitle, 'First headline');
   assert.equal(metadata.frequencyHz, CAST_AUDIO_FREQUENCY_HZ);
+  assert.equal(metadata.timingVersion, CAST_AUDIO_TIMING_VERSION);
   assert.deepEqual(CAST_AUDIO_SPEEDS_WPM, [5, 10, 15, 20, 25, 30]);
   assert.deepEqual(metadata.speeds.map((entry) => entry.speedWpm), CAST_AUDIO_SPEEDS_WPM);
   assert.equal(savedMetadata.firstHeadlineTitle, 'First headline');
@@ -46,6 +48,32 @@ test('buildCastAudioForSnapshot writes cached MP3s for all headlines at each spe
     assert.ok(entry.durationMs > 1000);
     assert.equal(mp3.subarray(0, 3).toString('ascii'), 'ID3');
   }
+});
+
+test('ensureCastAudioForSnapshot rebuilds old timing-version media', async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morse-news-cast-'));
+  const snapshot = {
+    fetchedAt: '2026-06-04T13:05:00.000Z',
+    headlines: [{ title: 'Timing version headline', source: 'Test Source', category: 'test' }],
+  };
+
+  await buildCastAudioForSnapshot(snapshot, {
+    dataDir,
+    now: new Date('2026-06-04T14:00:00.000Z'),
+  });
+
+  const manifestPath = path.join(dataDir, 'morse-news-cast-audio.json');
+  const oldManifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
+  delete oldManifest.timingVersion;
+  await fs.writeFile(manifestPath, JSON.stringify(oldManifest, null, 2));
+
+  const rebuilt = await ensureCastAudioForSnapshot(snapshot, {
+    dataDir,
+    now: new Date('2026-06-04T15:00:00.000Z'),
+  });
+
+  assert.equal(rebuilt.timingVersion, CAST_AUDIO_TIMING_VERSION);
+  assert.equal(rebuilt.updatedAt, '2026-06-04T15:00:00.000Z');
 });
 
 test('ensureCastAudioForSnapshot reuses a current cached media file', async () => {

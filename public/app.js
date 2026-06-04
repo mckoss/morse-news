@@ -36,6 +36,7 @@ const state = {
   loopRunning: false,
   castReady: false,
   castingSpeed: null,
+  castLoadRunId: 0,
   castRemotePlayer: null,
   castRemoteController: null,
   startedAt: 0,
@@ -203,6 +204,8 @@ function setupCastRemotePlayer() {
 async function castAllHeadlines(speedWpm) {
   if (!window.cast?.framework || !window.chrome?.cast?.media) return;
 
+  const loadRunId = state.castLoadRunId + 1;
+  state.castLoadRunId = loadRunId;
   setCastButtonsDisabled(true);
   setCastingSpeed(speedWpm);
   els.progress.textContent = `Starting Cast at ${speedWpm} WPM…`;
@@ -220,6 +223,10 @@ async function castAllHeadlines(speedWpm) {
       els.progress.textContent = `Connecting Cast at ${speedWpm} WPM…`;
       await wait(CAST_NEW_SESSION_READY_DELAY_MS);
     }
+    if (state.castLoadRunId !== loadRunId) return;
+
+    await stopExistingCastMedia(context.getCurrentSession() || session);
+    if (state.castLoadRunId !== loadRunId) return;
 
     const mediaInfo = new chrome.cast.media.MediaInfo(media.mediaUrl, media.contentType);
     mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
@@ -229,16 +236,24 @@ async function castAllHeadlines(speedWpm) {
     mediaInfo.duration = Math.round(media.durationMs / 1000);
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
+    request.autoplay = true;
+    request.currentTime = 0;
+    request.customData = {
+      mediaVersion: manifest.mediaVersion,
+      speedWpm,
+    };
     await loadCastMediaWithRetry(() => context.getCurrentSession() || session, request);
+    if (state.castLoadRunId !== loadRunId) return;
     setCastingSpeed(speedWpm);
     updateCastPlaybackControls();
     els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
+    if (state.castLoadRunId !== loadRunId) return;
     setCastingSpeed(null);
     els.progress.textContent = 'Could not start Cast playback.';
   } finally {
-    setCastButtonsDisabled(false);
+    if (state.castLoadRunId === loadRunId) setCastButtonsDisabled(false);
   }
 }
 
@@ -259,6 +274,25 @@ async function loadCastMediaWithRetry(getSession, request, {
   }
 
   throw lastError;
+}
+
+async function stopExistingCastMedia(session) {
+  const mediaSession = session?.getMediaSession?.();
+  if (!mediaSession || !window.chrome?.cast?.media) return;
+
+  const idleState = chrome.cast.media.PlayerState?.IDLE;
+  if (idleState && mediaSession.playerState === idleState) return;
+
+  els.progress.textContent = 'Stopping previous Cast playback…';
+  try {
+    await new Promise((resolve, reject) => {
+      const request = chrome.cast.media.StopRequest ? new chrome.cast.media.StopRequest() : null;
+      mediaSession.stop(request, resolve, reject);
+    });
+    await wait(350);
+  } catch (error) {
+    console.warn('Could not stop previous Cast media before loading new speed.', error);
+  }
 }
 
 function toggleCastPause() {

@@ -40,4 +40,4 @@ fetch RSS feeds inline.
 
 After each headline refresh, the server also prebuilds Cast media for the current headline set:
 mono MP3 at 48 kbps, 650 Hz, for 5/10/15/20/25/30 WPM. `/api/cast-audio` returns the manifest and
-`/api/cast-audio/:speedWpm.mp3` serves the cached media files.
+path-versioned `/api/cast-audio/:mediaVersion/:speedWpm.mp3` URLs for cached media files.

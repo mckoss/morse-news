@@ -10,6 +10,7 @@ export const CAST_AUDIO_FREQUENCY_HZ = 650;
 export const CAST_AUDIO_SAMPLE_RATE = 22050;
 export const CAST_AUDIO_BIT_RATE_KBPS = 48;
 export const CAST_AUDIO_CONTENT_TYPE = 'audio/mpeg';
+export const CAST_AUDIO_TIMING_VERSION = 2;
 
 const MANIFEST_FILE_NAME = 'morse-news-cast-audio.json';
 const LEAD_IN_MS = 500;
@@ -44,6 +45,7 @@ export async function ensureCastAudioForSnapshot(snapshot, options = {}) {
     && current?.headlineCount === snapshot.headlines.length
     && current?.frequencyHz === CAST_AUDIO_FREQUENCY_HZ
     && current?.bitRateKbps === CAST_AUDIO_BIT_RATE_KBPS
+    && current?.timingVersion === CAST_AUDIO_TIMING_VERSION
     && hasAllSpeedEntries(current)
   ) {
     try {
@@ -87,6 +89,7 @@ export async function buildCastAudioForSnapshot(snapshot, { dataDir = resolveDat
     frequencyHz: CAST_AUDIO_FREQUENCY_HZ,
     sampleRate: CAST_AUDIO_SAMPLE_RATE,
     bitRateKbps: CAST_AUDIO_BIT_RATE_KBPS,
+    timingVersion: CAST_AUDIO_TIMING_VERSION,
     contentType: CAST_AUDIO_CONTENT_TYPE,
     speeds: entries,
     updatedAt: now.toISOString(),

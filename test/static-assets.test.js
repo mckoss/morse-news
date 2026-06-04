@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.20<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.20"/);
-  assert.match(html, /src="\/app\.js\?v=1\.20"/);
+  assert.match(html, /<span id="version">v 1\.21<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.21"/);
+  assert.match(html, /src="\/app\.js\?v=1\.21"/);
   assert.match(html, /by <a href="https:\/\/www\.qrz\.com\/db\/K7MCK">K7MCK<\/a>/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
   assert.match(html, /data-cast-speed="20"/);
@@ -37,7 +37,8 @@ test('cast media URLs are versioned and manifest revalidates', async () => {
   const serverJs = await readFile(new URL('../server.js', import.meta.url), 'utf8');
 
   assert.match(serverJs, /mediaVersion/);
-  assert.match(serverJs, /\/api\/cast-audio\/\$\{entry\.speedWpm\}\.mp3\?v=\$\{mediaVersion\}/);
+  assert.match(serverJs, /\/api\/cast-audio\/\$\{mediaVersion\}\/\$\{entry\.speedWpm\}\.mp3/);
+  assert.match(serverJs, /max-age=86400, immutable/);
   assert.match(serverJs, /Cache-Control['"],\s*['"]no-cache, must-revalidate/);
 });
 
@@ -49,6 +50,11 @@ test('cast sender retries transient loadMedia failures', async () => {
   assert.match(appJs, /CAST_LOAD_ATTEMPTS = 4/);
   assert.match(appJs, /context\.getCurrentSession\(\) \|\| session/);
   assert.match(appJs, /session\.loadMedia\(request\)/);
+  assert.match(appJs, /request\.autoplay = true/);
+  assert.match(appJs, /request\.currentTime = 0/);
+  assert.match(appJs, /mediaVersion: manifest\.mediaVersion/);
+  assert.match(appJs, /stopExistingCastMedia/);
+  assert.match(appJs, /mediaSession\.stop\(request, resolve, reject\)/);
   assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+updateCastPlaybackControls\(\);\n\s+els\.progress\.textContent = `Casting all headlines at \$\{speedWpm\} WPM\.`/);
 });
 
