@@ -35,6 +35,8 @@ const state = {
   loopRunning: false,
   castReady: false,
   castingSpeed: null,
+  castRemotePlayer: null,
+  castRemoteController: null,
   startedAt: 0,
   segmentStartedAt: 0,
   remainingMs: 15 * 60 * 1000,
@@ -51,6 +53,7 @@ const els = {
   refresh: document.querySelector('#refresh'),
   castPanel: document.querySelector('#cast-panel'),
   castSpeeds: [...document.querySelectorAll('.cast-speed')],
+  pauseCast: document.querySelector('#pause-cast'),
   stopCast: document.querySelector('#stop-cast'),
   previous: document.querySelector('#previous'),
   next: document.querySelector('#next'),
@@ -80,6 +83,7 @@ els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true, index
 els.castSpeeds.forEach((button) => {
   button.addEventListener('click', () => castAllHeadlines(Number(button.dataset.castSpeed)));
 });
+els.pauseCast.addEventListener('click', toggleCastPause);
 els.stopCast.addEventListener('click', stopCasting);
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
@@ -171,6 +175,7 @@ function setupCast() {
 
     const sessionEventType = cast.framework.CastContextEventType?.SESSION_STATE_CHANGED;
     if (sessionEventType) context.addEventListener(sessionEventType, updateCastSessionState);
+    setupCastRemotePlayer();
 
     state.castReady = true;
     els.castPanel.classList.remove('hidden');
@@ -180,6 +185,18 @@ function setupCast() {
 
   window.addEventListener('morse-news-cast-ready', (event) => maybeInitialize(event.detail?.isAvailable));
   maybeInitialize(window.__morseNewsCastReady);
+}
+
+function setupCastRemotePlayer() {
+  if (state.castRemoteController) return;
+  if (!cast.framework.RemotePlayer || !cast.framework.RemotePlayerController) return;
+
+  state.castRemotePlayer = new cast.framework.RemotePlayer();
+  state.castRemoteController = new cast.framework.RemotePlayerController(state.castRemotePlayer);
+
+  const eventType = cast.framework.RemotePlayerEventType?.ANY_CHANGE;
+  if (eventType) state.castRemoteController.addEventListener(eventType, updateCastPlaybackControls);
+  updateCastPlaybackControls();
 }
 
 async function castAllHeadlines(speedWpm) {
@@ -213,6 +230,7 @@ async function castAllHeadlines(speedWpm) {
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     await loadCastMediaWithRetry(() => context.getCurrentSession() || session, request);
     setCastingSpeed(speedWpm);
+    updateCastPlaybackControls();
     els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
@@ -242,6 +260,23 @@ async function loadCastMediaWithRetry(getSession, request, {
   throw lastError;
 }
 
+function toggleCastPause() {
+  const player = state.castRemotePlayer;
+  const controller = state.castRemoteController;
+  if (!controller || !player?.isMediaLoaded || !player.canPause) return;
+
+  els.pauseCast.disabled = true;
+  els.progress.textContent = player.isPaused ? 'Resuming Cast playback…' : 'Pausing Cast playback…';
+  try {
+    controller.playOrPause();
+  } catch (error) {
+    console.error(error);
+    els.progress.textContent = 'Could not change Cast playback.';
+  } finally {
+    window.setTimeout(updateCastPlaybackControls, 350);
+  }
+}
+
 async function stopCasting() {
   if (!window.cast?.framework) return;
 
@@ -255,6 +290,7 @@ async function stopCasting() {
   try {
     await session.endSession(true);
     setCastingSpeed(null);
+    updateCastPlaybackControls();
     els.progress.textContent = 'Cast stopped.';
   } catch (error) {
     console.error(error);
@@ -268,6 +304,7 @@ function updateCastSessionState() {
   if (!window.cast?.framework) return;
   const session = cast.framework.CastContext.getInstance().getCurrentSession();
   if (!session) setCastingSpeed(null);
+  updateCastPlaybackControls();
 }
 
 function setCastButtonsDisabled(disabled) {
@@ -282,6 +319,17 @@ function setCastingSpeed(speedWpm) {
     button.classList.toggle('casting', Number(button.dataset.castSpeed) === speedWpm);
   });
   els.stopCast.classList.toggle('hidden', !speedWpm);
+  updateCastPlaybackControls();
+}
+
+function updateCastPlaybackControls() {
+  const player = state.castRemotePlayer;
+  const hasCastMedia = Boolean(state.castingSpeed);
+  const canPause = Boolean(hasCastMedia && player?.isMediaLoaded && player.canPause);
+
+  els.pauseCast.classList.toggle('hidden', !hasCastMedia);
+  els.pauseCast.disabled = !canPause;
+  els.pauseCast.textContent = player?.isPaused ? 'Resume casting' : 'Pause casting';
 }
 
 function renderHeadlines(payload) {

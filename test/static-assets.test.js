@@ -5,11 +5,12 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.18<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.18"/);
-  assert.match(html, /src="\/app\.js\?v=1\.18"/);
+  assert.match(html, /<span id="version">v 1\.19<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.19"/);
+  assert.match(html, /src="\/app\.js\?v=1\.19"/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
   assert.match(html, /data-cast-speed="20"/);
+  assert.match(html, /id="pause-cast"/);
 });
 
 test('static assets revalidate instead of sticking in mobile browser cache', async () => {
@@ -43,5 +44,16 @@ test('cast sender retries transient loadMedia failures', async () => {
   assert.match(appJs, /CAST_LOAD_ATTEMPTS = 4/);
   assert.match(appJs, /context\.getCurrentSession\(\) \|\| session/);
   assert.match(appJs, /session\.loadMedia\(request\)/);
-  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+els\.progress\.textContent = `Casting all headlines at \$\{speedWpm\} WPM\.`/);
+  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+updateCastPlaybackControls\(\);\n\s+els\.progress\.textContent = `Casting all headlines at \$\{speedWpm\} WPM\.`/);
+});
+
+test('cast sender wires remote player pause and resume controls', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /new cast\.framework\.RemotePlayer\(\)/);
+  assert.match(appJs, /new cast\.framework\.RemotePlayerController\(state\.castRemotePlayer\)/);
+  assert.match(appJs, /RemotePlayerEventType\?\.ANY_CHANGE/);
+  assert.match(appJs, /controller\.playOrPause\(\)/);
+  assert.match(appJs, /player\?\.isPaused \? 'Resume casting' : 'Pause casting'/);
+  assert.match(appJs, /player\?\.isMediaLoaded && player\.canPause/);
 });

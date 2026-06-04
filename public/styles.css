@@ -128,8 +128,16 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
   outline: 3px solid var(--accent-2);
   background: #263b4d;
 }
+.cast-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.cast-pause {
+  color: var(--accent-2);
+}
 .stop-cast {
-  justify-self: start;
   color: #ffcf8a;
 }
 
