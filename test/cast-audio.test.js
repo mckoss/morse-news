@@ -33,6 +33,7 @@ test('buildCastAudioForSnapshot writes cached MP3s for all headlines at each spe
   assert.equal(metadata.headlineCount, 2);
   assert.equal(metadata.firstHeadlineTitle, 'First headline');
   assert.equal(metadata.frequencyHz, CAST_AUDIO_FREQUENCY_HZ);
+  assert.deepEqual(CAST_AUDIO_SPEEDS_WPM, [5, 10, 15, 20, 25, 30]);
   assert.deepEqual(metadata.speeds.map((entry) => entry.speedWpm), CAST_AUDIO_SPEEDS_WPM);
   assert.equal(savedMetadata.firstHeadlineTitle, 'First headline');
 

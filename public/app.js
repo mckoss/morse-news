@@ -5,6 +5,7 @@ import {
 } from './playback-state.js';
 import { unitsForHeadline } from './morse-timing.js';
 
+const SUPPORTED_SPEEDS_WPM = [5, 10, 15, 20, 25, 30];
 const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
 const PLAYBACK_STATE_COOKIE = 'morseNewsPlaybackState';
@@ -116,7 +117,7 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
 }
 
 function setSpeed(speed, { persist = true } = {}) {
-  if (![5, 10, 15, 20].includes(speed)) return;
+  if (!SUPPORTED_SPEEDS_WPM.includes(speed)) return;
   state.speed = speed;
   document.querySelectorAll('.speed').forEach((item) => {
     item.classList.toggle('active', Number(item.dataset.speed) === speed);

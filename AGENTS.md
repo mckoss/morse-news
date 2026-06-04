@@ -70,7 +70,9 @@ Implications:
 - A LAN URL may work if the phone, speaker, and development machine are on the same network and the port is reachable.
 - The real Cast test target is the public HTTPS site: `https://morse-news.mckoss.com`.
 
-Cast media is prebuilt as mono MP3 for 5/10/15/20 WPM. `/api/cast-audio` returns the manifest and versioned public media URLs. `/api/cast-audio/:speedWpm.mp3` serves the cached MP3 files.
+Cast media is prebuilt as mono MP3 for 5/10/15/20/25/30 WPM. `/api/cast-audio` returns the manifest and versioned public media URLs. `/api/cast-audio/:speedWpm.mp3` serves the cached MP3 files.
+
+Timing is Farnsworth below 20 WPM: characters stay at 20 WPM while spacing stretches. Speeds above 20 WPM are true faster timing, with both characters and spacing sped up.
 
 Receiver startup can be slow. Preserve the sender's warm-up delay and retry behavior unless replacing it with a better proven Cast flow.
 

@@ -10,6 +10,7 @@ export const MORSE = {
 
 export const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 export const MESSAGE_GAP_MS = 5000;
+export const FARNSWORTH_CHARACTER_WPM = 20;
 
 export function unitsForHeadline(text, effectiveWpm) {
   return [
@@ -20,10 +21,7 @@ export function unitsForHeadline(text, effectiveWpm) {
 }
 
 export function unitsForText(text, effectiveWpm) {
-  // Farnsworth: characters are sent at 20 WPM, spacing is stretched for slower effective copy speeds.
-  const characterWpm = 20;
-  const charUnit = 1200 / characterWpm;
-  const spacingUnit = 1200 / Math.min(effectiveWpm, characterWpm);
+  const { charUnit, spacingUnit } = timingUnits(effectiveWpm);
   const units = [];
   const words = sanitize(text).split(/\s+/).filter(Boolean);
 
@@ -46,9 +44,7 @@ export function unitsForText(text, effectiveWpm) {
 }
 
 export function unitsForProsign(code, effectiveWpm) {
-  const characterWpm = 20;
-  const charUnit = 1200 / characterWpm;
-  const spacingUnit = 1200 / Math.min(effectiveWpm, characterWpm);
+  const { charUnit, spacingUnit } = timingUnits(effectiveWpm);
   const units = [{ repeatable: false, events: [{ on: false, ms: spacingUnit * 7 }] }];
   const events = [];
 
@@ -59,6 +55,17 @@ export function unitsForProsign(code, effectiveWpm) {
   units.push({ repeatable: true, events });
 
   return units;
+}
+
+export function timingUnits(effectiveWpm) {
+  // Farnsworth below 20 WPM: characters stay at 20 WPM while spacing stretches.
+  // Above 20 WPM, send true faster code with matching character and spacing timing.
+  const safeWpm = Math.max(1, Number(effectiveWpm) || FARNSWORTH_CHARACTER_WPM);
+  const characterWpm = Math.max(FARNSWORTH_CHARACTER_WPM, safeWpm);
+  return {
+    charUnit: 1200 / characterWpm,
+    spacingUnit: 1200 / safeWpm,
+  };
 }
 
 export function sanitize(text) {

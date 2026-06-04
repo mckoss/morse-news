@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101820">
   <title>Morse News</title>
-  <link rel="stylesheet" href="/styles.css?v=1.19">
+  <link rel="stylesheet" href="/styles.css?v=1.20">
 </head>
 <body>
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.19</span></h1>
+      <h1>Morse News <span id="version">v 1.20</span></h1>
+      <p class="byline">by <a href="https://www.qrz.com/db/K7MCK">K7MCK</a></p>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
 
@@ -26,6 +27,8 @@
         <button class="speed" data-speed="10">10 WPM</button>
         <button class="speed" data-speed="15">15 WPM</button>
         <button class="speed" data-speed="20">20 WPM</button>
+        <button class="speed" data-speed="25">25 WPM</button>
+        <button class="speed" data-speed="30">30 WPM</button>
       </div>
 
       <label class="field">
@@ -63,6 +66,8 @@
           <button class="cast-speed" data-cast-speed="10" disabled>10 WPM</button>
           <button class="cast-speed" data-cast-speed="15" disabled>15 WPM</button>
           <button class="cast-speed" data-cast-speed="20" disabled>20 WPM</button>
+          <button class="cast-speed" data-cast-speed="25" disabled>25 WPM</button>
+          <button class="cast-speed" data-cast-speed="30" disabled>30 WPM</button>
         </div>
         <div class="cast-actions">
           <button id="pause-cast" class="quiet cast-pause hidden" disabled>Pause casting</button>
@@ -96,6 +101,6 @@
     };
   </script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
-  <script src="/app.js?v=1.19" type="module"></script>
+  <script src="/app.js?v=1.20" type="module"></script>
 </body>
 </html>

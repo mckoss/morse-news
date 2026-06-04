@@ -57,6 +57,15 @@ h1 { margin-bottom: 8px; font-size: clamp(2.3rem, 12vw, 5rem); line-height: 0.9;
   vertical-align: super;
 }
 h2 { margin-bottom: 10px; font-size: 1.2rem; }
+.byline {
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.byline a {
+  color: var(--accent);
+}
 .lede { max-width: 35rem; color: var(--muted); font-size: 1.05rem; }
 .muted { color: var(--muted); }
 
@@ -116,7 +125,7 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
 }
 .cast-speed-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 .cast-speed {
