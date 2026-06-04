@@ -212,6 +212,7 @@ async function castAllHeadlines(speedWpm) {
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     await loadCastMediaWithRetry(() => context.getCurrentSession() || session, request);
+    setCastingSpeed(speedWpm);
     els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);

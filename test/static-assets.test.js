@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.17<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.17"/);
-  assert.match(html, /src="\/app\.js\?v=1\.17"/);
+  assert.match(html, /<span id="version">v 1\.18<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.18"/);
+  assert.match(html, /src="\/app\.js\?v=1\.18"/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
   assert.match(html, /data-cast-speed="20"/);
 });
@@ -43,4 +43,5 @@ test('cast sender retries transient loadMedia failures', async () => {
   assert.match(appJs, /CAST_LOAD_ATTEMPTS = 4/);
   assert.match(appJs, /context\.getCurrentSession\(\) \|\| session/);
   assert.match(appJs, /session\.loadMedia\(request\)/);
+  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+els\.progress\.textContent = `Casting all headlines at \$\{speedWpm\} WPM\.`/);
 });
