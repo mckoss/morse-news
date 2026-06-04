@@ -7,10 +7,10 @@ import { resolveDataDir } from './data-dir.js';
 
 export const CAST_AUDIO_SPEEDS_WPM = [5, 10, 15, 20, 25, 30];
 export const CAST_AUDIO_FREQUENCY_HZ = 650;
-export const CAST_AUDIO_SAMPLE_RATE = 22050;
+export const CAST_AUDIO_SAMPLE_RATE = 44100;
 export const CAST_AUDIO_BIT_RATE_KBPS = 48;
 export const CAST_AUDIO_CONTENT_TYPE = 'audio/mpeg';
-export const CAST_AUDIO_TIMING_VERSION = 2;
+export const CAST_AUDIO_TIMING_VERSION = 3;
 
 const MANIFEST_FILE_NAME = 'morse-news-cast-audio.json';
 const LEAD_IN_MS = 500;
@@ -177,6 +177,7 @@ function encodeMp3(pcm, { bitRateKbps, sampleRate }) {
       '-i', 'pipe:0',
       '-vn',
       '-acodec', 'libmp3lame',
+      '-id3v2_version', '3',
       '-b:a', `${bitRateKbps}k`,
       '-f', 'mp3',
       'pipe:1',
