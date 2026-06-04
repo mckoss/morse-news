@@ -81,6 +81,19 @@ export async function getHeadlineSnapshot({ index = 0, now = new Date() } = {}) 
   return withArchive(snapshot, archive, safeIndex, now);
 }
 
+export async function getCachedHeadlineSnapshot({ index = 0, now = new Date() } = {}) {
+  const cached = await readCache();
+  const archive = await getArchive(now, cached);
+  const safeIndex = Math.min(Math.max(0, index), Math.max(0, archive.length - 1));
+  const snapshot = archive[safeIndex] ?? cached;
+  if (!snapshot) throw new Error('No cached headlines available yet');
+  return withArchive(snapshot, archive, safeIndex, now);
+}
+
+export async function readHeadlineCache() {
+  return readCache();
+}
+
 async function fetchSource(source) {
   const response = await fetch(source.url, {
     headers: {

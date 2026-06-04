@@ -1,8 +1,11 @@
 import express from 'express';
-import { fetchHeadlines, getHeadlineSnapshot } from './src/headlines.js';
+import { getCachedHeadlineSnapshot } from './src/headlines.js';
+import { ensureHeadlineRefreshTimer } from './src/headline-refresh-scheduler.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+ensureHeadlineRefreshTimer();
 
 app.use(express.static('public', {
   etag: true,
@@ -13,17 +16,15 @@ app.use(express.static('public', {
 }));
 
 app.get('/api/headlines', async (req, res) => {
+  ensureHeadlineRefreshTimer();
   try {
     const index = Math.max(0, Number.parseInt(req.query.index ?? '0', 10) || 0);
-    const force = req.query.force === '1' || req.query.force === 'true';
-    const payload = index > 0
-      ? await getHeadlineSnapshot({ index })
-      : await fetchHeadlines({ force });
-    res.set('Cache-Control', force ? 'no-store' : 'public, max-age=900');
+    const payload = await getCachedHeadlineSnapshot({ index });
+    res.set('Cache-Control', 'public, max-age=900');
     res.json(payload);
   } catch (error) {
-    console.error('headline fetch failed', error);
-    res.status(500).json({ error: 'Could not load headlines today.' });
+    console.error('headline cache unavailable', error);
+    res.status(503).json({ error: 'Headlines are refreshing. Try again in a minute.' });
   }
 });
 

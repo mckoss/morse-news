@@ -79,7 +79,7 @@ els.minutes.addEventListener('change', () => {
 
 els.start.addEventListener('click', startPractice);
 els.stop.addEventListener('click', togglePauseResume);
-els.refresh.addEventListener('click', () => loadHeadlines({ force: true, forceUi: true, index: 0 }));
+els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true, index: 0 }));
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
 
@@ -87,15 +87,14 @@ restorePlaybackPreferences();
 await loadHeadlines();
 setInterval(updateSnapshotControls, 60 * 1000);
 
-async function loadHeadlines({ force = false, forceUi = false, index = state.historyIndex } = {}) {
-  els.headlineCount.textContent = forceUi ? 'Refreshing headlines…' : 'Loading headlines…';
+async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {}) {
+  els.headlineCount.textContent = forceUi ? 'Checking headlines…' : 'Loading headlines…';
   try {
     const params = new URLSearchParams();
     if (index > 0) params.set('index', String(index));
-    if (force) params.set('force', '1');
     const query = params.toString();
     const response = await fetch(`/api/headlines${query ? `?${query}` : ''}`, {
-      cache: force ? 'no-store' : 'default',
+      cache: 'default',
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();

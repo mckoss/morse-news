@@ -13,7 +13,7 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 
 ## Features
 
-- Daily-ish cached headline feed at `/api/headlines`
+- Cached headline feed at `/api/headlines`, refreshed on Pacific 6-hour windows
 - Generic source mix: NPR, New York Times, The Guardian World, and ScienceDaily
 - Sports headline filtering and article links when the RSS feed provides a URL
 - 30-day archive of headline snapshots with previous/next navigation
@@ -30,3 +30,8 @@ This intentionally avoids a build step. The frontend is plain HTML/CSS/JS and th
 Headline cache and archive files are written to `DATA_DIR`, then `RAILWAY_VOLUME_MOUNT_PATH`,
 then local `./data` as a fallback. For Railway persistence across deploys, mount a Railway
 Volume at `/app/data`; local development will keep using the repo's `data/` directory.
+
+The Express process owns headline refreshes. A server timer checks every 15 minutes and refreshes
+only when the cached snapshot is not from the current Pacific 6-hour window: midnight, 6 AM, noon,
+or 6 PM. Requests serve the current cache/archive and make sure the timer is running; they do not
+fetch RSS feeds inline.
