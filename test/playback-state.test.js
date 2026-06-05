@@ -96,6 +96,9 @@ test('playback preferences can recover from stale cookie or storage state', asyn
   assert.match(appJs, /readPlaybackStateStorage\(\)/);
   assert.match(appJs, /setFrequency\(Number\(saved\?\.frequencyHz\)/);
   assert.match(appJs, /frequencyHz:\s*Number\(els\.frequency\.value\)/);
+  assert.match(appJs, /els\.castSpeed\.addEventListener\('change', \(\) => setCastSpeed\(Number\(els\.castSpeed\.value\)\)\)/);
+  assert.match(appJs, /setCastSpeed\(Number\(saved\?\.castSpeedWpm\) \|\| Number\(els\.castSpeed\.value\), \{ persist: false \}\)/);
+  assert.match(appJs, /castSpeedWpm:\s*Number\(els\.castSpeed\.value\)/);
   assert.match(appJs, /const now = Date\.now\(\)/);
   assert.match(appJs, /updatedAt:\s*now/);
   assert.match(appJs, /headlineSetKey\(state\.headlines, state\.payload\.fetchedAt\)/);

@@ -87,6 +87,7 @@ els.minutes.addEventListener('change', () => {
 els.start.addEventListener('click', startPractice);
 els.stop.addEventListener('click', togglePauseResume);
 els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true, index: 0 }));
+els.castSpeed.addEventListener('change', () => setCastSpeed(Number(els.castSpeed.value)));
 els.startCast.addEventListener('click', () => castAllHeadlines(Number(els.castSpeed.value)));
 els.pauseCast.addEventListener('click', toggleCastPause);
 els.stopCast.addEventListener('click', stopCasting);
@@ -176,6 +177,12 @@ function setFrequency(frequency, { persist = true } = {}) {
   els.frequency.value = String(frequency);
   els.frequencyLabel.textContent = `${frequency} Hz`;
   if (state.oscillator) state.oscillator.frequency.value = frequency;
+  if (persist) savePlaybackState();
+}
+
+function setCastSpeed(speed, { persist = true } = {}) {
+  if (!SUPPORTED_SPEEDS_WPM.includes(speed)) return;
+  els.castSpeed.value = String(speed);
   if (persist) savePlaybackState();
 }
 
@@ -690,6 +697,7 @@ function restorePlaybackPreferences() {
   setSpeed(Number(saved?.speed) || state.speed, { persist: false });
   setDurationMinutes(Number(saved?.durationMinutes) || Math.round(state.durationMs / 60000), { persist: false });
   setFrequency(Number(saved?.frequencyHz) || Number(els.frequency.value), { persist: false });
+  setCastSpeed(Number(saved?.castSpeedWpm) || Number(els.castSpeed.value), { persist: false });
 }
 
 function restorePlaybackProgress() {
@@ -725,6 +733,7 @@ function savePlaybackState() {
     speed: state.speed,
     durationMinutes: Math.round(state.durationMs / 60000),
     frequencyHz: Number(els.frequency.value),
+    castSpeedWpm: Number(els.castSpeed.value),
     fetchedAt: state.payload?.fetchedAt ?? '',
     lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
     lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
