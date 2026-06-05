@@ -56,9 +56,11 @@ const els = {
   stop: document.querySelector('#stop'),
   refresh: document.querySelector('#refresh'),
   castPanel: document.querySelector('#cast-panel'),
-  castSpeeds: [...document.querySelectorAll('.cast-speed')],
+  castSpeed: document.querySelector('#cast-speed'),
+  startCast: document.querySelector('#start-cast'),
   pauseCast: document.querySelector('#pause-cast'),
   stopCast: document.querySelector('#stop-cast'),
+  castStatus: document.querySelector('#cast-status'),
   previous: document.querySelector('#previous'),
   next: document.querySelector('#next'),
   snapshotTime: document.querySelector('#snapshot-time'),
@@ -84,9 +86,7 @@ els.minutes.addEventListener('change', () => {
 els.start.addEventListener('click', startPractice);
 els.stop.addEventListener('click', togglePauseResume);
 els.refresh.addEventListener('click', () => loadHeadlines({ forceUi: true, index: 0 }));
-els.castSpeeds.forEach((button) => {
-  button.addEventListener('click', () => castAllHeadlines(Number(button.dataset.castSpeed)));
-});
+els.startCast.addEventListener('click', () => castAllHeadlines(Number(els.castSpeed.value)));
 els.pauseCast.addEventListener('click', toggleCastPause);
 els.stopCast.addEventListener('click', stopCasting);
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
@@ -248,7 +248,7 @@ async function castAllHeadlines(speedWpm) {
     if (state.castLoadRunId !== loadRunId) return;
     setCastingSpeed(speedWpm);
     updateCastPlaybackControls();
-    els.progress.textContent = `Casting all headlines at ${speedWpm} WPM.`;
+    els.progress.textContent = `Casting latest headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
     if (state.castLoadRunId !== loadRunId) return;
@@ -345,17 +345,17 @@ function updateCastSessionState() {
 }
 
 function setCastButtonsDisabled(disabled) {
-  els.castSpeeds.forEach((button) => {
-    button.disabled = disabled || !state.castReady;
-  });
+  const isDisabled = disabled || !state.castReady;
+  els.castSpeed.disabled = isDisabled;
+  els.startCast.disabled = isDisabled;
 }
 
 function setCastingSpeed(speedWpm) {
   state.castingSpeed = speedWpm;
-  els.castSpeeds.forEach((button) => {
-    button.classList.toggle('casting', Number(button.dataset.castSpeed) === speedWpm);
-  });
   els.stopCast.classList.toggle('hidden', !speedWpm);
+  els.castStatus.textContent = speedWpm
+    ? `Casting latest headlines at ${speedWpm} WPM.`
+    : 'Not casting.';
   updateCastPlaybackControls();
 }
 

@@ -113,29 +113,21 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
 .cast-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   color: var(--accent-2);
   font-weight: 900;
+}
+.cast-title small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 .cast-title svg {
   width: 22px;
   height: 22px;
   fill: currentColor;
   flex: 0 0 auto;
-}
-.cast-speed-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-.cast-speed {
-  min-height: 42px;
-  padding: 9px 8px;
-  font-size: 0.88rem;
-}
-.cast-speed.casting {
-  outline: 3px solid var(--accent-2);
-  background: #263b4d;
 }
 .cast-actions {
   display: flex;
@@ -148,6 +140,10 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
 }
 .stop-cast {
   color: #ffcf8a;
+}
+.cast-status {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .field {
@@ -225,12 +221,6 @@ output { color: var(--text); }
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
 .headline-list a { color: var(--accent-2); font-weight: 800; }
 .hidden { display: none; }
-
-@media (max-width: 420px) {
-  .cast-speed-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
 
 @media (min-width: 760px) {
   .app-shell {

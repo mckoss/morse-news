@@ -5,16 +5,19 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.24<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.24"/);
-  assert.match(html, /src="\/app\.js\?v=1\.24"/);
+  assert.match(html, /<span id="version">v 1\.25<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.25"/);
+  assert.match(html, /src="\/app\.js\?v=1\.25"/);
   assert.match(html, /by <a href="https:\/\/www\.qrz\.com\/db\/K7MCK">K7MCK<\/a>/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
-  assert.match(html, /data-cast-speed="20"/);
   assert.match(html, /data-speed="25"/);
   assert.match(html, /data-speed="30"/);
-  assert.match(html, /data-cast-speed="25"/);
-  assert.match(html, /data-cast-speed="30"/);
+  assert.match(html, /<span>Cast latest headlines<\/span>/);
+  assert.match(html, /Latest headline set only/);
+  assert.match(html, /<select id="cast-speed" disabled>/);
+  assert.match(html, /<option value="30">30 WPM<\/option>/);
+  assert.match(html, /id="start-cast"/);
+  assert.doesNotMatch(html, /Today’s headlines/);
   assert.match(html, /id="pause-cast"/);
 });
 
@@ -55,7 +58,8 @@ test('cast sender retries transient loadMedia failures', async () => {
   assert.match(appJs, /mediaVersion: manifest\.mediaVersion/);
   assert.match(appJs, /stopExistingCastMedia/);
   assert.match(appJs, /mediaSession\.stop\(request, resolve, reject\)/);
-  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+updateCastPlaybackControls\(\);\n\s+els\.progress\.textContent = `Casting all headlines at \$\{speedWpm\} WPM\.`/);
+  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+updateCastPlaybackControls\(\);\n\s+els\.progress\.textContent = `Casting latest headlines at \$\{speedWpm\} WPM\.`/);
+  assert.match(appJs, /els\.castStatus\.textContent = speedWpm[\s\S]*Casting latest headlines at \$\{speedWpm\} WPM/);
 });
 
 test('cast sender wires remote player pause and resume controls', async () => {
