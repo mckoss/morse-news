@@ -1,5 +1,6 @@
 import {
   headlineKey,
+  headlineSetKey,
   nextHeadlineIndex as computeNextHeadlineIndex,
   resolveCompletedHeadlineIndex,
 } from './playback-state.js';
@@ -10,7 +11,8 @@ const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
 const PLAYBACK_STATE_COOKIE = 'morseNewsPlaybackState';
 const PLAYBACK_STATE_STORAGE_KEY = 'morseNewsPlaybackState';
-const PLAYBACK_STATE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+const PLAYBACK_STATE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const PLAYBACK_PROGRESS_TTL_MS = PLAYBACK_STATE_MAX_AGE_SECONDS * 1000;
 const CAST_NEW_SESSION_READY_DELAY_MS = 2500;
 const CAST_LOAD_RETRY_DELAY_MS = 1500;
 const CAST_LOAD_ATTEMPTS = 4;
@@ -642,18 +644,35 @@ function restorePlaybackProgress() {
 
 function savePlaybackState() {
   const completedHeadline = state.headlines[state.lastCompletedHeadlineIndex];
+  const now = Date.now();
+  const previous = readPlaybackState() ?? {};
+  const setProgress = pruneSetProgress(previous.setProgress, now);
+  if (state.headlines.length > 0 && state.payload?.fetchedAt) {
+    setProgress[headlineSetKey(state.headlines, state.payload.fetchedAt)] = {
+      fetchedAt: state.payload.fetchedAt,
+      lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
+      lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
+      updatedAt: now,
+    };
+  }
+
   const playbackState = {
-    version: 1,
+    version: 2,
     speed: state.speed,
     durationMinutes: Math.round(state.durationMs / 60000),
     frequencyHz: Number(els.frequency.value),
     fetchedAt: state.payload?.fetchedAt ?? '',
     lastCompletedHeadlineIndex: state.lastCompletedHeadlineIndex,
     lastCompletedHeadlineKey: completedHeadline ? headlineKey(completedHeadline) : '',
-    updatedAt: Date.now(),
+    setProgress,
+    updatedAt: now,
   };
 
-  const encoded = encodeURIComponent(JSON.stringify(playbackState));
+  const {
+    setProgress: _setProgress,
+    ...cookieState
+  } = playbackState;
+  const encoded = encodeURIComponent(JSON.stringify(cookieState));
   document.cookie = `${PLAYBACK_STATE_COOKIE}=${encoded}; max-age=${PLAYBACK_STATE_MAX_AGE_SECONDS}; path=/; SameSite=Lax`;
 
   try {
@@ -670,9 +689,33 @@ function readPlaybackState() {
   if (!fromCookie) return fromStorage;
   if (!fromStorage) return fromCookie;
 
-  return Number(fromStorage.updatedAt || 0) > Number(fromCookie.updatedAt || 0)
+  const newer = Number(fromStorage.updatedAt || 0) > Number(fromCookie.updatedAt || 0)
     ? fromStorage
     : fromCookie;
+  const older = newer === fromStorage ? fromCookie : fromStorage;
+
+  return {
+    ...older,
+    ...newer,
+    setProgress: {
+      ...(older.setProgress ?? {}),
+      ...(newer.setProgress ?? {}),
+    },
+  };
+}
+
+function pruneSetProgress(setProgress, now = Date.now()) {
+  const fresh = {};
+  if (!setProgress || typeof setProgress !== 'object') return fresh;
+
+  for (const [key, progress] of Object.entries(setProgress)) {
+    const updatedAt = Number(progress?.updatedAt || 0);
+    if (updatedAt > 0 && now - updatedAt <= PLAYBACK_PROGRESS_TTL_MS) {
+      fresh[key] = progress;
+    }
+  }
+
+  return fresh;
 }
 
 function readPlaybackStateCookie() {

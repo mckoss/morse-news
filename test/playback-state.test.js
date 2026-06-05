@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import {
   headlineKey,
+  headlineSetKey,
   nextHeadlineIndex,
   resolveCompletedHeadlineIndex,
 } from '../public/playback-state.js';
@@ -26,14 +27,15 @@ test('fresh load without saved progress marks the first headline active', async 
   assert.match(styles, /\.headline-list li\.next-headline \.headline-title\s*\{[\s\S]*color:\s*#fff07a/);
 });
 
-test('resolveCompletedHeadlineIndex matches saved progress by headline identity', () => {
+test('resolveCompletedHeadlineIndex matches legacy saved progress by headline identity only for the same snapshot', () => {
   const saved = {
-    fetchedAt: 'old-fetch-time',
+    fetchedAt: 'same-fetch-time',
     lastCompletedHeadlineIndex: 0,
     lastCompletedHeadlineKey: headlineKey(headlines[1]),
   };
 
-  assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'new-fetch-time'), 1);
+  assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'same-fetch-time'), 1);
+  assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'new-fetch-time'), -1);
   assert.equal(nextHeadlineIndex(1, headlines.length), 2);
 });
 
@@ -46,6 +48,32 @@ test('resolveCompletedHeadlineIndex falls back to index only for the same snapsh
 
   assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'same-fetch-time'), 2);
   assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'new-fetch-time'), -1);
+});
+
+test('resolveCompletedHeadlineIndex keeps independent progress per headline set', () => {
+  const newerHeadlines = [
+    { title: 'Delta Headline', source: 'NPR', category: 'national', link: 'https://example.com/d' },
+    { title: 'Echo Headline', source: 'NPR', category: 'national', link: 'https://example.com/e' },
+  ];
+  const saved = {
+    version: 2,
+    setProgress: {
+      [headlineSetKey(headlines, 'older-fetch-time')]: {
+        fetchedAt: 'older-fetch-time',
+        lastCompletedHeadlineIndex: 1,
+        updatedAt: 1000,
+      },
+      [headlineSetKey(newerHeadlines, 'newer-fetch-time')]: {
+        fetchedAt: 'newer-fetch-time',
+        lastCompletedHeadlineIndex: 0,
+        updatedAt: 2000,
+      },
+    },
+  };
+
+  assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'older-fetch-time'), 1);
+  assert.equal(resolveCompletedHeadlineIndex(saved, newerHeadlines, 'newer-fetch-time'), 0);
+  assert.equal(resolveCompletedHeadlineIndex(saved, headlines, 'different-fetch-time'), -1);
 });
 
 test('audio setup creates one compatible Web Audio context', async () => {
@@ -68,6 +96,10 @@ test('playback preferences can recover from stale cookie or storage state', asyn
   assert.match(appJs, /readPlaybackStateStorage\(\)/);
   assert.match(appJs, /setFrequency\(Number\(saved\?\.frequencyHz\)/);
   assert.match(appJs, /frequencyHz:\s*Number\(els\.frequency\.value\)/);
-  assert.match(appJs, /updatedAt:\s*Date\.now\(\)/);
-  assert.match(appJs, /Number\(fromStorage\.updatedAt \|\| 0\) > Number\(fromCookie\.updatedAt \|\| 0\)/);
+  assert.match(appJs, /const now = Date\.now\(\)/);
+  assert.match(appJs, /updatedAt:\s*now/);
+  assert.match(appJs, /headlineSetKey\(state\.headlines, state\.payload\.fetchedAt\)/);
+  assert.match(appJs, /PLAYBACK_STATE_MAX_AGE_SECONDS = 30 \* 24 \* 60 \* 60/);
+  assert.match(appJs, /pruneSetProgress\(previous\.setProgress, now\)/);
+  assert.match(appJs, /\.\.\.\(older\.setProgress \?\? \{\}\)/);
 });

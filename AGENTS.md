@@ -86,6 +86,10 @@ Use focused tests for behavior changes:
 - `test/playback-state.test.js` for browser playback state helpers.
 - `test/static-assets.test.js` for cache/version/deploy-sensitive HTML and route assumptions.
 
+If a test imports Playwright or runs browser automation, declare Playwright as a repo `devDependency`.
+Do not rely on the global OpenClaw Playwright install for repo tests; global tools are fine for ad-hoc
+smoke checks only.
+
 For Cast changes, automated tests can cover sender code structure, manifest shape, cache headers, and media generation. Actual receiver playback still needs a public-URL manual test.
 
 ## Coding Preferences
