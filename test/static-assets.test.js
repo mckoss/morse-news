@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 test('page cache-busts browser assets for each deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.25<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.25"/);
-  assert.match(html, /src="\/app\.js\?v=1\.25"/);
+  assert.match(html, /<span id="version">v 1\.26<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=1\.26"/);
+  assert.match(html, /src="\/app\.js\?v=1\.26"/);
   assert.match(html, /by <a href="https:\/\/www\.qrz\.com\/db\/K7MCK">K7MCK<\/a>/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
   assert.match(html, /data-speed="25"/);

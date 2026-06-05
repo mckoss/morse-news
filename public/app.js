@@ -100,6 +100,9 @@ setInterval(updateSnapshotControls, 60 * 1000);
 async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {}) {
   els.headlineCount.textContent = forceUi ? 'Checking headlines…' : 'Loading headlines…';
   try {
+    const previousSetKey = state.headlines.length > 0
+      ? headlineSetKey(state.headlines, state.payload?.fetchedAt)
+      : '';
     const params = new URLSearchParams();
     if (index > 0) params.set('index', String(index));
     const query = params.toString();
@@ -108,7 +111,13 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    state.headlines = payload.headlines ?? [];
+    const nextHeadlines = payload.headlines ?? [];
+    const nextSetKey = nextHeadlines.length > 0
+      ? headlineSetKey(nextHeadlines, payload.fetchedAt)
+      : '';
+    const changedHeadlineSet = Boolean(previousSetKey && nextSetKey && previousSetKey !== nextSetKey);
+    if (changedHeadlineSet && state.sessionActive && !state.playing) stopPracticeForHeadlineSetChange();
+    state.headlines = nextHeadlines;
     state.payload = payload;
     state.historyIndex = payload.archive?.index ?? index;
     restorePlaybackProgress();
@@ -495,6 +504,24 @@ function finishPractice(message) {
   els.stop.disabled = true;
   els.stop.textContent = 'Stop';
   els.progress.textContent = message;
+}
+
+function stopPracticeForHeadlineSetChange() {
+  state.playing = false;
+  state.sessionActive = false;
+  state.loopRunning = false;
+  state.startedAt = 0;
+  state.segmentStartedAt = 0;
+  state.currentUnitIndex = 0;
+  state.lastSentUnitIndex = -1;
+  state.remainingMs = state.durationMs;
+  state.playbackRunId += 1;
+  cancelWait();
+  setTone(false);
+  els.start.disabled = false;
+  els.stop.disabled = true;
+  els.stop.textContent = 'Stop';
+  els.progress.textContent = 'Pick a speed and start a session.';
 }
 
 async function ensureAudio() {

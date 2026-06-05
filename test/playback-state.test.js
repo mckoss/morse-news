@@ -103,3 +103,14 @@ test('playback preferences can recover from stale cookie or storage state', asyn
   assert.match(appJs, /pruneSetProgress\(previous\.setProgress, now\)/);
   assert.match(appJs, /\.\.\.\(older\.setProgress \?\? \{\}\)/);
 });
+
+test('paused practice state clears when browsing to a different headline set', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /previousSetKey = state\.headlines\.length > 0[\s\S]*headlineSetKey\(state\.headlines, state\.payload\?\.fetchedAt\)/);
+  assert.match(appJs, /nextSetKey = nextHeadlines\.length > 0[\s\S]*headlineSetKey\(nextHeadlines, payload\.fetchedAt\)/);
+  assert.match(appJs, /changedHeadlineSet && state\.sessionActive && !state\.playing\) stopPracticeForHeadlineSetChange\(\)/);
+  assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*state\.sessionActive = false/);
+  assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*state\.playbackRunId \+= 1/);
+  assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*els\.stop\.disabled = true/);
+});
