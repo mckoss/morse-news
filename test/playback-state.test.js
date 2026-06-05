@@ -109,8 +109,21 @@ test('paused practice state clears when browsing to a different headline set', a
 
   assert.match(appJs, /previousSetKey = state\.headlines\.length > 0[\s\S]*headlineSetKey\(state\.headlines, state\.payload\?\.fetchedAt\)/);
   assert.match(appJs, /nextSetKey = nextHeadlines\.length > 0[\s\S]*headlineSetKey\(nextHeadlines, payload\.fetchedAt\)/);
-  assert.match(appJs, /changedHeadlineSet && state\.sessionActive && !state\.playing\) stopPracticeForHeadlineSetChange\(\)/);
+  assert.match(appJs, /changedHeadlineSet && state\.sessionActive && !state\.playing && !state\.pausedPlaybackView/);
   assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*state\.sessionActive = false/);
   assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*state\.playbackRunId \+= 1/);
   assert.match(appJs, /function stopPracticeForHeadlineSetChange\(\) \{[\s\S]*els\.stop\.disabled = true/);
+});
+
+test('running practice pauses on headline-set browsing and resume restores playback view', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /stopPracticeForHeadlineSetBrowse\(\);[\s\S]*previousSetKey = state\.headlines\.length > 0/);
+  assert.match(appJs, /pausedPlaybackView: null/);
+  assert.match(appJs, /function stopPracticeForHeadlineSetBrowse\(\) \{[\s\S]*if \(!state\.playing \|\| !state\.sessionActive \|\| state\.pausedPlaybackView\) return/);
+  assert.match(appJs, /state\.pausedPlaybackView = \{[\s\S]*headlines: state\.headlines,[\s\S]*payload: state\.payload,[\s\S]*historyIndex: state\.historyIndex/);
+  assert.match(appJs, /Paused while browsing another headline set\. Resume returns to the active playback set\./);
+  assert.match(appJs, /restorePausedPlaybackView\(\);[\s\S]*await startPlayback\(\{ delayMs: START_DELAY_MS, message: 'Resuming in 2 seconds…' \}\)/);
+  assert.match(appJs, /function restorePausedPlaybackView\(\) \{[\s\S]*renderHeadlines\(state\.payload\);[\s\S]*scrollActiveHeadlineIntoView\(\)/);
+  assert.match(appJs, /function scrollActiveHeadlineIntoView\(\) \{[\s\S]*scrollIntoView\(\{/);
 });

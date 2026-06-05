@@ -41,6 +41,7 @@ const state = {
   castLoadRunId: 0,
   castRemotePlayer: null,
   castRemoteController: null,
+  pausedPlaybackView: null,
   startedAt: 0,
   segmentStartedAt: 0,
   remainingMs: 15 * 60 * 1000,
@@ -100,6 +101,7 @@ setInterval(updateSnapshotControls, 60 * 1000);
 async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {}) {
   els.headlineCount.textContent = forceUi ? 'Checking headlines…' : 'Loading headlines…';
   try {
+    stopPracticeForHeadlineSetBrowse();
     const previousSetKey = state.headlines.length > 0
       ? headlineSetKey(state.headlines, state.payload?.fetchedAt)
       : '';
@@ -116,7 +118,9 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
       ? headlineSetKey(nextHeadlines, payload.fetchedAt)
       : '';
     const changedHeadlineSet = Boolean(previousSetKey && nextSetKey && previousSetKey !== nextSetKey);
-    if (changedHeadlineSet && state.sessionActive && !state.playing) stopPracticeForHeadlineSetChange();
+    if (changedHeadlineSet && state.sessionActive && !state.playing && !state.pausedPlaybackView) {
+      stopPracticeForHeadlineSetChange();
+    }
     state.headlines = nextHeadlines;
     state.payload = payload;
     state.historyIndex = payload.archive?.index ?? index;
@@ -412,6 +416,7 @@ function updateSnapshotControls() {
 async function startPractice() {
   if (state.headlines.length === 0) return;
 
+  state.pausedPlaybackView = null;
   if (state.sessionActive) {
     state.remainingMs = state.durationMs;
     state.startedAt = 0;
@@ -439,6 +444,7 @@ async function togglePauseResume() {
   }
 
   if (state.sessionActive) {
+    restorePausedPlaybackView();
     await startPlayback({ delayMs: START_DELAY_MS, message: 'Resuming in 2 seconds…' });
   }
 }
@@ -478,7 +484,7 @@ async function startPlayback({ delayMs = 0, message = '' } = {}) {
   playLoop(runId);
 }
 
-function pausePractice() {
+function pausePractice({ message = 'Paused. Resume repeats the last character.' } = {}) {
   state.remainingMs = remainingSessionMs();
   if (state.lastSentUnitIndex >= 0) state.currentUnitIndex = state.lastSentUnitIndex;
   state.playing = false;
@@ -488,13 +494,14 @@ function pausePractice() {
   els.start.disabled = false;
   els.stop.disabled = false;
   els.stop.textContent = 'Resume';
-  els.progress.textContent = 'Paused. Resume repeats the last character.';
+  els.progress.textContent = message;
 }
 
 function finishPractice(message) {
   state.playing = false;
   state.sessionActive = false;
   state.loopRunning = false;
+  state.pausedPlaybackView = null;
   state.startedAt = 0;
   state.segmentStartedAt = 0;
   state.remainingMs = state.durationMs;
@@ -510,6 +517,7 @@ function stopPracticeForHeadlineSetChange() {
   state.playing = false;
   state.sessionActive = false;
   state.loopRunning = false;
+  state.pausedPlaybackView = null;
   state.startedAt = 0;
   state.segmentStartedAt = 0;
   state.currentUnitIndex = 0;
@@ -522,6 +530,35 @@ function stopPracticeForHeadlineSetChange() {
   els.stop.disabled = true;
   els.stop.textContent = 'Stop';
   els.progress.textContent = 'Pick a speed and start a session.';
+}
+
+function stopPracticeForHeadlineSetBrowse() {
+  if (!state.playing || !state.sessionActive || state.pausedPlaybackView) return;
+
+  state.pausedPlaybackView = {
+    headlines: state.headlines,
+    payload: state.payload,
+    historyIndex: state.historyIndex,
+  };
+  pausePractice({ message: 'Paused while browsing another headline set. Resume returns to the active playback set.' });
+}
+
+function restorePausedPlaybackView() {
+  if (!state.pausedPlaybackView) return;
+
+  state.headlines = state.pausedPlaybackView.headlines;
+  state.payload = state.pausedPlaybackView.payload;
+  state.historyIndex = state.pausedPlaybackView.historyIndex;
+  state.pausedPlaybackView = null;
+  renderHeadlines(state.payload);
+  scrollActiveHeadlineIntoView();
+}
+
+function scrollActiveHeadlineIntoView() {
+  els.headlines.querySelector('li.next-headline')?.scrollIntoView({
+    block: 'nearest',
+    behavior: 'smooth',
+  });
 }
 
 async function ensureAudio() {
