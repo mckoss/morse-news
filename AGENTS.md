@@ -48,14 +48,9 @@ The live app is deployed from GitHub `main` to Railway:
 
 `https://morse-news.mckoss.com`
 
-When a browser-loaded file changes, bump all of these together:
-
-- `package.json` version
-- `package-lock.json` version
-- visible version in `public/index.html`
-- `/styles.css?v=...` in `public/index.html`
-- `/app.js?v=...` in `public/index.html`
-- version assertions in `test/static-assets.test.js`
+`package.json` is the single app version source. The server renders the visible page
+version and `/styles.css?v=...` / `/app.js?v=...` from `package.json`; do not hardcode
+release numbers in `public/index.html`.
 
 The app intentionally serves mutable static assets with `Cache-Control: no-cache, must-revalidate`; still bump query versions so mobile browsers and deployed pages reliably pick up changes.
 

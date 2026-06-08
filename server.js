@@ -1,5 +1,8 @@
 import express from 'express';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import {
   castAudioFilePath,
   CAST_AUDIO_SPEEDS_WPM,
@@ -12,9 +15,21 @@ import { ensureHeadlineRefreshTimer } from './src/headline-refresh-scheduler.js'
 
 const app = express();
 const port = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const APP_ASSET_VERSION = packageJson.version;
+const APP_DISPLAY_VERSION = displayVersion(packageJson.version);
 
 app.set('trust proxy', true);
 ensureHeadlineRefreshTimer();
+
+app.get(['/', '/index.html'], (req, res) => {
+  const html = readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8')
+    .replaceAll('{{APP_ASSET_VERSION}}', APP_ASSET_VERSION)
+    .replaceAll('{{APP_DISPLAY_VERSION}}', APP_DISPLAY_VERSION);
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.type('html').send(html);
+});
 
 app.use(express.static('public', {
   etag: true,
@@ -109,6 +124,11 @@ function castMediaVersion(manifest) {
   ].filter(Boolean).join('_') || String(Date.now());
 
   return createHash('sha256').update(source).digest('hex').slice(0, 16);
+}
+
+function displayVersion(version) {
+  const match = /^(\d+)\.0\.(\d+)$/.exec(version);
+  return match ? `${match[1]}.${match[2]}` : version;
 }
 
 app.listen(port, '0.0.0.0', () => {

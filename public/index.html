@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#101820">
   <title>Morse News</title>
-  <link rel="stylesheet" href="/styles.css?v=1.29">
+  <link rel="stylesheet" href="/styles.css?v={{APP_ASSET_VERSION}}">
 </head>
 <body>
   <main class="app-shell">
     <section class="hero">
       <p class="eyebrow">Daily CW practice</p>
-      <h1>Morse News <span id="version">v 1.29</span></h1>
+      <h1>Morse News <span id="version">v {{APP_DISPLAY_VERSION}}</span></h1>
       <p class="byline">by <a href="https://www.qrz.com/db/K7MCK">K7MCK</a></p>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
     </section>
@@ -72,8 +72,8 @@
 
       <label class="field">
         <span>Tone</span>
-        <input id="frequency" type="range" min="400" max="900" step="25" value="650">
-        <output id="frequency-label">650 Hz</output>
+        <input id="frequency" type="range" min="400" max="900" step="25" value="550">
+        <output id="frequency-label">550 Hz</output>
       </label>
 
       <div class="button-row">
@@ -106,6 +106,6 @@
     };
   </script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
-  <script src="/app.js?v=1.29" type="module"></script>
+  <script src="/app.js?v={{APP_ASSET_VERSION}}" type="module"></script>
 </body>
 </html>

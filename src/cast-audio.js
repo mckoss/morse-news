@@ -6,7 +6,7 @@ import { unitsForHeadline } from '../public/morse-timing.js';
 import { resolveDataDir } from './data-dir.js';
 
 export const CAST_AUDIO_SPEEDS_WPM = [5, 10, 15, 20, 25, 30];
-export const CAST_AUDIO_FREQUENCY_HZ = 650;
+export const CAST_AUDIO_FREQUENCY_HZ = 550;
 export const CAST_AUDIO_SAMPLE_RATE = 44100;
 export const CAST_AUDIO_BIT_RATE_KBPS = 48;
 export const CAST_AUDIO_CONTENT_TYPE = 'audio/mpeg';

@@ -1,13 +1,14 @@
 import { readFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-test('page cache-busts browser assets for each deployed version', async () => {
+test('page template uses package-driven placeholders for deployed version', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<span id="version">v 1\.29<\/span>/);
-  assert.match(html, /href="\/styles\.css\?v=1\.29"/);
-  assert.match(html, /src="\/app\.js\?v=1\.29"/);
+  assert.match(html, /<span id="version">v \{\{APP_DISPLAY_VERSION\}\}<\/span>/);
+  assert.match(html, /href="\/styles\.css\?v=\{\{APP_ASSET_VERSION\}\}"/);
+  assert.match(html, /src="\/app\.js\?v=\{\{APP_ASSET_VERSION\}\}"/);
   assert.match(html, /by <a href="https:\/\/www\.qrz\.com\/db\/K7MCK">K7MCK<\/a>/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
   assert.match(html, /data-speed="25"/);
@@ -16,9 +17,36 @@ test('page cache-busts browser assets for each deployed version', async () => {
   assert.match(html, /Latest headline set only/);
   assert.match(html, /<select id="cast-speed" disabled>/);
   assert.match(html, /<option value="30">30 WPM<\/option>/);
+  assert.match(html, /<input id="frequency"[^>]+value="550"/);
+  assert.match(html, /<output id="frequency-label">550 Hz<\/output>/);
   assert.match(html, /id="start-cast"/);
   assert.doesNotMatch(html, /Today’s headlines/);
   assert.match(html, /id="pause-cast"/);
+});
+
+test('server renders visible version and asset URLs from package.json', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const port = 36000 + Math.floor(Math.random() * 1000);
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: new URL('..', import.meta.url),
+    env: { ...process.env, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  try {
+    await waitForServer(child);
+    const res = await fetch(`http://127.0.0.1:${port}/`, { cache: 'no-store' });
+    const html = await res.text();
+    const displayVersion = packageJson.version.replace(/^(\d+)\.0\.(\d+)$/, '$1.$2');
+
+    assert.equal(res.status, 200);
+    assert.match(html, new RegExp(`<span id="version">v ${escapeRegExp(displayVersion)}</span>`));
+    assert.match(html, new RegExp(`href="/styles\\.css\\?v=${escapeRegExp(packageJson.version)}"`));
+    assert.match(html, new RegExp(`src="/app\\.js\\?v=${escapeRegExp(packageJson.version)}"`));
+    assert.doesNotMatch(html, /\{\{APP_/);
+  } finally {
+    child.kill();
+  }
 });
 
 test('static assets revalidate instead of sticking in mobile browser cache', async () => {
@@ -72,3 +100,31 @@ test('cast sender wires remote player pause and resume controls', async () => {
   assert.match(appJs, /player\?\.isPaused \? 'Resume casting' : 'Pause casting'/);
   assert.match(appJs, /player\?\.isMediaLoaded && player\.canPause/);
 });
+
+function waitForServer(child) {
+  return new Promise((resolve, reject) => {
+    let output = '';
+    const timeout = setTimeout(() => reject(new Error(`server did not start: ${output}`)), 5000);
+    const onData = (chunk) => {
+      output += chunk.toString('utf8');
+      if (output.includes('Morse News listening')) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
+    child.on('exit', (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`server exited ${code}: ${output}`));
+    });
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
