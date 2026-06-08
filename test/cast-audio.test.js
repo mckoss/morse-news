@@ -14,6 +14,7 @@ import {
   ensureCastAudioForSnapshot,
   getCastAudioEntry,
   readCastAudioManifest,
+  renderPcmSamples,
 } from '../src/cast-audio.js';
 
 test('buildCastAudioForSnapshot writes cached MP3s for all headlines at each speed', async () => {
@@ -97,3 +98,29 @@ test('ensureCastAudioForSnapshot reuses a current cached media file', async () =
 
   assert.equal(second.updatedAt, first.updatedAt);
 });
+
+test('renderPcmSamples shapes tone edges to avoid Cast playback clicks', () => {
+  const sampleRate = CAST_AUDIO_SAMPLE_RATE;
+  const samples = renderPcmSamples([{ events: [{ on: true, ms: 100 }] }], {
+    frequencyHz: CAST_AUDIO_FREQUENCY_HZ,
+    sampleRate,
+  });
+  const toneStart = Math.round(0.5 * sampleRate);
+  const toneLength = Math.round(0.1 * sampleRate);
+  const edgeLength = Math.round(0.001 * sampleRate);
+  const middleStart = toneStart + Math.round(0.04 * sampleRate);
+
+  assert.equal(samples[toneStart], 0, 'tone starts at zero amplitude');
+  assert.equal(samples[toneStart + toneLength - 1], 0, 'tone ends at zero amplitude');
+  assert.ok(maxAbs(samples, toneStart, edgeLength) < 1500, 'attack is ramped in gently');
+  assert.ok(maxAbs(samples, toneStart + toneLength - edgeLength, edgeLength) < 1500, 'release is ramped out gently');
+  assert.ok(maxAbs(samples, middleStart, edgeLength) > 7000, 'tone reaches full sidetone amplitude');
+});
+
+function maxAbs(samples, start, count) {
+  let max = 0;
+  for (let index = start; index < start + count; index += 1) {
+    max = Math.max(max, Math.abs(samples[index]));
+  }
+  return max;
+}

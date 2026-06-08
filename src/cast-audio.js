@@ -10,11 +10,12 @@ export const CAST_AUDIO_FREQUENCY_HZ = 650;
 export const CAST_AUDIO_SAMPLE_RATE = 44100;
 export const CAST_AUDIO_BIT_RATE_KBPS = 48;
 export const CAST_AUDIO_CONTENT_TYPE = 'audio/mpeg';
-export const CAST_AUDIO_TIMING_VERSION = 3;
+export const CAST_AUDIO_TIMING_VERSION = 4;
 
 const MANIFEST_FILE_NAME = 'morse-news-cast-audio.json';
 const LEAD_IN_MS = 500;
 const AMPLITUDE = 0.28;
+const TONE_EDGE_RAMP_MS = 6;
 
 export function castAudioFileName(speedWpm) {
   return `morse-news-cast-${speedWpm}wpm.mp3`;
@@ -155,11 +156,24 @@ function msToSamples(ms, sampleRate) {
 }
 
 function appendTone(samples, offset, count, frequencyHz, sampleRate) {
+  const rampSamples = Math.min(Math.floor(count / 2), msToSamples(TONE_EDGE_RAMP_MS, sampleRate));
   for (let index = 0; index < count; index += 1) {
-    const envelope = Math.min(1, index / 80, (count - index) / 80);
+    const envelope = raisedCosineEnvelope(index, count, rampSamples);
     const value = Math.sin((2 * Math.PI * frequencyHz * index) / sampleRate) * AMPLITUDE * envelope;
     samples[offset + index] = Math.round(value * 32767);
   }
+}
+
+function raisedCosineEnvelope(index, count, rampSamples) {
+  if (rampSamples <= 0) return 1;
+  const attack = index < rampSamples
+    ? 0.5 - (0.5 * Math.cos((Math.PI * index) / rampSamples))
+    : 1;
+  const releaseSamplesRemaining = count - 1 - index;
+  const release = releaseSamplesRemaining < rampSamples
+    ? 0.5 - (0.5 * Math.cos((Math.PI * releaseSamplesRemaining) / rampSamples))
+    : 1;
+  return Math.min(attack, release);
 }
 
 function encodeMp3(pcm, { bitRateKbps, sampleRate }) {
