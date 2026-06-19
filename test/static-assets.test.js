@@ -86,8 +86,19 @@ test('cast sender retries transient loadMedia failures', async () => {
   assert.match(appJs, /mediaVersion: manifest\.mediaVersion/);
   assert.match(appJs, /stopExistingCastMedia/);
   assert.match(appJs, /mediaSession\.stop\(request, resolve, reject\)/);
-  assert.match(appJs, /setCastingSpeed\(speedWpm\);\n\s+updateCastPlaybackControls\(\);\n\s+els\.progress\.textContent = `Casting latest headlines at \$\{speedWpm\} WPM\.`/);
+  assert.match(appJs, /setCastPendingSpeed\(speedWpm\);/);
+  assert.match(appJs, /await loadCastMediaWithRetry\(\(\) => context\.getCurrentSession\(\) \|\| session, request\);\n\s+if \(state\.castLoadRunId !== loadRunId\) return;\n\s+setCastPendingSpeed\(null\);\n\s+setCastingSpeed\(speedWpm\);/);
   assert.match(appJs, /els\.castStatus\.textContent = speedWpm[\s\S]*Casting latest headlines at \$\{speedWpm\} WPM/);
+});
+
+test('cast sender can cancel a pending first connection', async () => {
+  const appJs = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+
+  assert.match(appJs, /castPendingSpeed: null/);
+  assert.match(appJs, /function stopCasting\(\) \{[\s\S]*state\.castLoadRunId \+= 1/);
+  assert.match(appJs, /function stopCasting\(\) \{[\s\S]*setCastPendingSpeed\(null\);\n\s+setCastingSpeed\(null\);/);
+  assert.match(appJs, /function updateCastSessionState\(\) \{[\s\S]*if \(state\.castPendingSpeed\) \{[\s\S]*return;/);
+  assert.match(appJs, /els\.stopCast\.classList\.toggle\('hidden', !state\.castingSpeed && !state\.castPendingSpeed\)/);
 });
 
 test('cast sender wires remote player pause and resume controls', async () => {

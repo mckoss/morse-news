@@ -38,6 +38,7 @@ const state = {
   loopRunning: false,
   castReady: false,
   castingSpeed: null,
+  castPendingSpeed: null,
   castLoadRunId: 0,
   castRemotePlayer: null,
   castRemoteController: null,
@@ -229,7 +230,8 @@ async function castAllHeadlines(speedWpm) {
   const loadRunId = state.castLoadRunId + 1;
   state.castLoadRunId = loadRunId;
   setCastButtonsDisabled(true);
-  setCastingSpeed(speedWpm);
+  setCastingSpeed(null);
+  setCastPendingSpeed(speedWpm);
   els.progress.textContent = `Starting Cast at ${speedWpm} WPM…`;
   try {
     const metadataResponse = await fetch('/api/cast-audio', { cache: 'no-store' });
@@ -266,12 +268,14 @@ async function castAllHeadlines(speedWpm) {
     };
     await loadCastMediaWithRetry(() => context.getCurrentSession() || session, request);
     if (state.castLoadRunId !== loadRunId) return;
+    setCastPendingSpeed(null);
     setCastingSpeed(speedWpm);
     updateCastPlaybackControls();
     els.progress.textContent = `Casting latest headlines at ${speedWpm} WPM.`;
   } catch (error) {
     console.error(error);
     if (state.castLoadRunId !== loadRunId) return;
+    setCastPendingSpeed(null);
     setCastingSpeed(null);
     els.progress.textContent = 'Could not start Cast playback.';
   } finally {
@@ -335,18 +339,24 @@ function toggleCastPause() {
 }
 
 async function stopCasting() {
-  if (!window.cast?.framework) return;
+  state.castLoadRunId += 1;
+  setCastPendingSpeed(null);
+  setCastingSpeed(null);
+
+  if (!window.cast?.framework) {
+    els.progress.textContent = 'Cast stopped.';
+    return;
+  }
 
   const session = cast.framework.CastContext.getInstance().getCurrentSession();
   if (!session) {
-    setCastingSpeed(null);
+    els.progress.textContent = 'Cast stopped.';
     return;
   }
 
   els.stopCast.disabled = true;
   try {
     await session.endSession(true);
-    setCastingSpeed(null);
     updateCastPlaybackControls();
     els.progress.textContent = 'Cast stopped.';
   } catch (error) {
@@ -360,7 +370,15 @@ async function stopCasting() {
 function updateCastSessionState() {
   if (!window.cast?.framework) return;
   const session = cast.framework.CastContext.getInstance().getCurrentSession();
-  if (!session) setCastingSpeed(null);
+  if (!session) {
+    if (state.castPendingSpeed) {
+      updateCastPlaybackControls();
+      return;
+    }
+    state.castLoadRunId += 1;
+    setCastPendingSpeed(null);
+    setCastingSpeed(null);
+  }
   updateCastPlaybackControls();
 }
 
@@ -372,10 +390,17 @@ function setCastButtonsDisabled(disabled) {
 
 function setCastingSpeed(speedWpm) {
   state.castingSpeed = speedWpm;
-  els.stopCast.classList.toggle('hidden', !speedWpm);
   els.castStatus.textContent = speedWpm
     ? `Casting latest headlines at ${speedWpm} WPM.`
     : 'Not casting.';
+  updateCastStopVisibility();
+  updateCastPlaybackControls();
+}
+
+function setCastPendingSpeed(speedWpm) {
+  state.castPendingSpeed = speedWpm;
+  if (speedWpm) els.castStatus.textContent = `Connecting Cast at ${speedWpm} WPM.`;
+  updateCastStopVisibility();
   updateCastPlaybackControls();
 }
 
@@ -387,6 +412,10 @@ function updateCastPlaybackControls() {
   els.pauseCast.classList.toggle('hidden', !hasCastMedia);
   els.pauseCast.disabled = !canPause;
   els.pauseCast.textContent = player?.isPaused ? 'Resume casting' : 'Pause casting';
+}
+
+function updateCastStopVisibility() {
+  els.stopCast.classList.toggle('hidden', !state.castingSpeed && !state.castPendingSpeed);
 }
 
 function renderHeadlines(payload) {
