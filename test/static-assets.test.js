@@ -141,12 +141,17 @@ test('cast sender wires remote player pause and resume controls', async () => {
 test('reference page renders Morse codes as scaled SVG dots and dashes', async () => {
   const referenceJs = await readFile(new URL('../public/reference.js', import.meta.url), 'utf8');
 
+  assert.match(referenceJs, /\['character', 'code'\]/);
+  assert.match(referenceJs, /return `\$\{character\} \(\$\{name\}\)`/);
+  assert.match(referenceJs, /return character\.toLowerCase\(\)/);
+  assert.match(referenceJs, /label: 'ar \(end of headline\)'/);
   assert.match(referenceJs, /const DOT_DIAMETER = 8/);
   assert.match(referenceJs, /const DASH_WIDTH = DOT_DIAMETER \* 3/);
   assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'circle'\)/);
   assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'rect'\)/);
   assert.match(referenceJs, /dash\.setAttribute\('rx', String\(DOT_DIAMETER \/ 2\)\)/);
   assert.doesNotMatch(referenceJs, /codeCell\.textContent = code/);
+  assert.doesNotMatch(referenceJs, /'Name'/);
 });
 
 function waitForServer(child) {

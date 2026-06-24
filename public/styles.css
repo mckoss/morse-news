@@ -272,11 +272,7 @@ output { color: var(--text); }
 }
 .morse-table th:first-child,
 .morse-table td:first-child {
-  width: 4.8rem;
-}
-.morse-table th:nth-child(2),
-.morse-table td:nth-child(2) {
-  width: 36%;
+  width: 46%;
 }
 .morse-table th,
 .morse-table td {

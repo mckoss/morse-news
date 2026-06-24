@@ -7,21 +7,21 @@ const DASH_WIDTH = DOT_DIAMETER * 3;
 const SYMBOL_HEIGHT = DOT_DIAMETER + 4;
 
 const LABELS = new Map([
-  ['.', 'Period'],
-  [',', 'Comma'],
-  ['?', 'Question mark'],
-  ["'", 'Apostrophe'],
-  ['!', 'Exclamation point'],
-  ['/', 'Slash'],
-  [':', 'Colon'],
-  [';', 'Semicolon'],
-  ['=', 'Equals'],
-  ['+', 'Plus'],
-  ['-', 'Hyphen'],
-  ['"', 'Quotation mark'],
-  ['@', 'At sign'],
-  ['(', 'Left parenthesis'],
-  [')', 'Right parenthesis'],
+  ['.', 'period'],
+  [',', 'comma'],
+  ['?', 'question mark'],
+  ["'", 'apostrophe'],
+  ['!', 'exclamation point'],
+  ['/', 'slash'],
+  [':', 'colon'],
+  [';', 'semicolon'],
+  ['=', 'equals'],
+  ['+', 'plus'],
+  ['-', 'hyphen'],
+  ['"', 'quotation mark'],
+  ['@', 'at sign'],
+  ['(', 'left parenthesis'],
+  [')', 'right parenthesis'],
 ]);
 
 const container = document.querySelector('#reference-tables');
@@ -51,8 +51,7 @@ function renderTable(characters) {
   const body = document.createElement('tbody');
   characters.forEach((character) => {
     body.append(renderRow({
-      character,
-      label: LABELS.get(character) ?? character,
+      label: displayLabel(character),
       code: MORSE[character],
     }));
   });
@@ -63,7 +62,7 @@ function renderTable(characters) {
 function renderHeader() {
   const head = document.createElement('thead');
   const row = document.createElement('tr');
-  ['Character', 'Name', 'Code'].forEach((label) => {
+  ['character', 'code'].forEach((label) => {
     const cell = document.createElement('th');
     cell.scope = 'col';
     cell.textContent = label;
@@ -73,22 +72,25 @@ function renderHeader() {
   return head;
 }
 
-function renderRow({ character, label, code }) {
+function renderRow({ label, code }) {
   const row = document.createElement('tr');
 
   const characterCell = document.createElement('td');
   characterCell.className = 'morse-character';
-  characterCell.textContent = character;
-
-  const labelCell = document.createElement('td');
-  labelCell.textContent = label;
+  characterCell.textContent = label;
 
   const codeCell = document.createElement('td');
   codeCell.className = 'morse-code';
   codeCell.append(renderMorseSvg(code));
 
-  row.append(characterCell, labelCell, codeCell);
+  row.append(characterCell, codeCell);
   return row;
+}
+
+function displayLabel(character) {
+  const name = LABELS.get(character);
+  if (name) return `${character} (${name})`;
+  return character.toLowerCase();
 }
 
 function renderMorseSvg(code) {
@@ -145,8 +147,7 @@ function renderProsign() {
 
   const body = document.createElement('tbody');
   body.append(renderRow({
-    character: 'AR',
-    label: 'End of headline',
+    label: 'ar (end of headline)',
     code: END_OF_MESSAGE_PROSIGN,
   }));
   table.append(body);
