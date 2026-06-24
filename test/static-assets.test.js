@@ -15,6 +15,7 @@ test('page template uses package-driven placeholders for deployed version', asyn
   assert.match(html, /data-speed="30"/);
   assert.match(html, /<span>Cast latest headlines<\/span>/);
   assert.match(html, /Latest headline set only/);
+  assert.match(html, /href="\/reference"/);
   assert.match(html, /<select id="cast-speed" disabled>/);
   assert.match(html, /<option value="30">30 WPM<\/option>/);
   assert.match(html, /<input id="frequency"[^>]+value="550"/);
@@ -37,12 +38,37 @@ test('server renders visible version and asset URLs from package.json', async ()
     await waitForServer(child);
     const res = await fetch(`http://127.0.0.1:${port}/`, { cache: 'no-store' });
     const html = await res.text();
-    const displayVersion = packageJson.version.replace(/^(\d+)\.0\.(\d+)$/, '$1.$2');
+    const displayVersion = displayVersionForPackage(packageJson.version);
 
     assert.equal(res.status, 200);
     assert.match(html, new RegExp(`<span id="version">v ${escapeRegExp(displayVersion)}</span>`));
     assert.match(html, new RegExp(`href="/styles\\.css\\?v=${escapeRegExp(packageJson.version)}"`));
     assert.match(html, new RegExp(`src="/app\\.js\\?v=${escapeRegExp(packageJson.version)}"`));
+    assert.doesNotMatch(html, /\{\{APP_/);
+  } finally {
+    child.kill();
+  }
+});
+
+test('server renders reference page with package-driven asset URLs', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const port = 37000 + Math.floor(Math.random() * 1000);
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: new URL('..', import.meta.url),
+    env: { ...process.env, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  try {
+    await waitForServer(child);
+    const res = await fetch(`http://127.0.0.1:${port}/reference`, { cache: 'no-store' });
+    const html = await res.text();
+    const displayVersion = displayVersionForPackage(packageJson.version);
+
+    assert.equal(res.status, 200);
+    assert.match(html, new RegExp(`<span id="version">v ${escapeRegExp(displayVersion)}</span>`));
+    assert.match(html, new RegExp(`href="/styles\\.css\\?v=${escapeRegExp(packageJson.version)}"`));
+    assert.match(html, new RegExp(`src="/reference\\.js\\?v=${escapeRegExp(packageJson.version)}"`));
     assert.doesNotMatch(html, /\{\{APP_/);
   } finally {
     child.kill();
@@ -112,6 +138,17 @@ test('cast sender wires remote player pause and resume controls', async () => {
   assert.match(appJs, /player\?\.isMediaLoaded && player\.canPause/);
 });
 
+test('reference page renders Morse codes as scaled SVG dots and dashes', async () => {
+  const referenceJs = await readFile(new URL('../public/reference.js', import.meta.url), 'utf8');
+
+  assert.match(referenceJs, /const DOT_DIAMETER = 8/);
+  assert.match(referenceJs, /const DASH_WIDTH = DOT_DIAMETER \* 3/);
+  assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'circle'\)/);
+  assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'rect'\)/);
+  assert.match(referenceJs, /dash\.setAttribute\('rx', String\(DOT_DIAMETER \/ 2\)\)/);
+  assert.doesNotMatch(referenceJs, /codeCell\.textContent = code/);
+});
+
 function waitForServer(child) {
   return new Promise((resolve, reject) => {
     let output = '';
@@ -138,4 +175,12 @@ function waitForServer(child) {
 
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function displayVersionForPackage(version) {
+  const minorMatch = /^(\d+\.\d+)\.0$/.exec(version);
+  if (minorMatch) return minorMatch[1];
+
+  const match = /^(\d+)\.0\.(\d+)$/.exec(version);
+  return match ? `${match[1]}.${match[2]}` : version;
 }

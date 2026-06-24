@@ -11,6 +11,20 @@ export const MORSE = {
 export const END_OF_MESSAGE_PROSIGN = '.-.-.'; // AR
 export const MESSAGE_GAP_MS = 5000;
 export const FARNSWORTH_CHARACTER_WPM = 20;
+export const MORSE_REFERENCE_GROUPS = [
+  {
+    heading: 'Letters',
+    characters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
+  },
+  {
+    heading: 'Numbers',
+    characters: '0123456789'.split(''),
+  },
+  {
+    heading: 'Punctuation',
+    characters: ['.', ',', '?', "'", '!', '/', ':', ';', '=', '+', '-', '"', '@', '(', ')'],
+  },
+];
 
 export function unitsForHeadline(text, effectiveWpm) {
   return [

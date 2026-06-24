@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <title>Morse Code Reference - Morse News</title>
+  <link rel="stylesheet" href="/styles.css?v={{APP_ASSET_VERSION}}">
+</head>
+<body>
+  <main class="app-shell reference-shell">
+    <section class="hero reference-hero">
+      <p class="eyebrow">Reference</p>
+      <h1>Morse Code <span id="version">v {{APP_DISPLAY_VERSION}}</span></h1>
+      <p class="byline"><a href="/">Back to practice</a></p>
+      <p class="lede">Letters, numbers, and punctuation that Morse News can send from headline text.</p>
+    </section>
+
+    <section class="panel reference-panel" aria-labelledby="reference-heading">
+      <div class="section-head reference-head">
+        <div>
+          <h2 id="reference-heading">Code Table</h2>
+          <p class="muted reference-note">The app also sends AR after each headline.</p>
+        </div>
+        <a class="quiet-link" href="/">Practice</a>
+      </div>
+      <div id="reference-tables" class="reference-tables"></div>
+    </section>
+  </main>
+
+  <script src="/reference.js?v={{APP_ASSET_VERSION}}" type="module"></script>
+</body>
+</html>

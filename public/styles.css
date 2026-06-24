@@ -67,6 +67,15 @@ h2 { margin-bottom: 10px; font-size: 1.2rem; }
   color: var(--accent);
 }
 .lede { max-width: 35rem; color: var(--muted); font-size: 1.05rem; }
+.hero-link {
+  margin: 12px 0 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.hero-link a,
+.quiet-link {
+  color: var(--accent-2);
+}
 .muted { color: var(--muted); }
 
 .panel {
@@ -220,6 +229,90 @@ output { color: var(--text); }
 
 .headline-list small { display: block; margin-top: 4px; color: var(--muted); }
 .headline-list a { color: var(--accent-2); font-weight: 800; }
+.reference-shell {
+  max-width: 1100px;
+}
+.reference-panel {
+  display: grid;
+  gap: 16px;
+}
+.reference-head {
+  align-items: start;
+}
+.reference-note {
+  margin-bottom: 0;
+  font-size: 0.92rem;
+}
+.quiet-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  font-weight: 900;
+}
+.reference-tables {
+  display: grid;
+  gap: 18px;
+}
+.reference-group {
+  display: grid;
+  gap: 8px;
+}
+.reference-group h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 1rem;
+}
+.morse-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.035);
+}
+.morse-table th:first-child,
+.morse-table td:first-child {
+  width: 4.8rem;
+}
+.morse-table th:nth-child(2),
+.morse-table td:nth-child(2) {
+  width: 36%;
+}
+.morse-table th,
+.morse-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  text-align: left;
+}
+.morse-table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.morse-table tr:last-child td {
+  border-bottom: 0;
+}
+.morse-character,
+.morse-code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-weight: 900;
+}
+.morse-character {
+  width: 7ch;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+.morse-code {
+  color: var(--accent-2);
+}
+.morse-symbols {
+  display: block;
+  max-width: 100%;
+  height: 12px;
+  overflow: visible;
+  fill: currentColor;
+}
 .hidden { display: none; }
 
 @media (min-width: 760px) {
@@ -229,4 +322,18 @@ output { color: var(--text); }
   }
   .hero, .controls { grid-column: 1; }
   .panel:last-child { grid-column: 2; }
+  .reference-shell {
+    grid-template-columns: 0.8fr 1.2fr;
+  }
+  .reference-hero {
+    position: sticky;
+    top: 16px;
+  }
+  .reference-panel {
+    grid-column: 2;
+  }
+  .reference-tables {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
 }

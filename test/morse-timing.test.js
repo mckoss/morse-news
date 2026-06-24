@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { timingUnits, unitsForText } from '../public/morse-timing.js';
+import { MORSE, MORSE_REFERENCE_GROUPS, sanitize, timingUnits, unitsForText } from '../public/morse-timing.js';
 
 test('timingUnits uses Farnsworth spacing below 20 WPM', () => {
   assert.deepEqual(timingUnits(5), { charUnit: 60, spacingUnit: 240 });
@@ -19,4 +19,15 @@ test('unitsForText shortens character elements above 20 WPM', () => {
 
   assert.equal(twentyWpmDit, 60);
   assert.equal(thirtyWpmDit, 40);
+});
+
+test('reference groups cover all headline characters the app can emit', () => {
+  const referenceCharacters = MORSE_REFERENCE_GROUPS.flatMap((group) => group.characters);
+  const emittedCharacters = new Set(sanitize(referenceCharacters.join('')).replace(/\s/g, '').split(''));
+
+  assert.deepEqual(new Set(referenceCharacters), emittedCharacters);
+  referenceCharacters.forEach((character) => assert.ok(MORSE[character], `${character} has Morse code`));
+  assert.equal(referenceCharacters.includes('&'), false);
+  assert.equal(referenceCharacters.includes('_'), false);
+  assert.equal(referenceCharacters.includes('$'), false);
 });

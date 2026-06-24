@@ -24,9 +24,13 @@ app.set('trust proxy', true);
 ensureHeadlineRefreshTimer();
 
 app.get(['/', '/index.html'], (req, res) => {
-  const html = readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8')
-    .replaceAll('{{APP_ASSET_VERSION}}', APP_ASSET_VERSION)
-    .replaceAll('{{APP_DISPLAY_VERSION}}', APP_DISPLAY_VERSION);
+  const html = renderPage('index.html');
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.type('html').send(html);
+});
+
+app.get(['/reference', '/reference.html'], (req, res) => {
+  const html = renderPage('reference.html');
   res.set('Cache-Control', 'no-cache, must-revalidate');
   res.type('html').send(html);
 });
@@ -127,8 +131,17 @@ function castMediaVersion(manifest) {
 }
 
 function displayVersion(version) {
+  const minorMatch = /^(\d+\.\d+)\.0$/.exec(version);
+  if (minorMatch) return minorMatch[1];
+
   const match = /^(\d+)\.0\.(\d+)$/.exec(version);
   return match ? `${match[1]}.${match[2]}` : version;
+}
+
+function renderPage(fileName) {
+  return readFileSync(path.join(__dirname, 'public', fileName), 'utf8')
+    .replaceAll('{{APP_ASSET_VERSION}}', APP_ASSET_VERSION)
+    .replaceAll('{{APP_DISPLAY_VERSION}}', APP_DISPLAY_VERSION);
 }
 
 app.listen(port, '0.0.0.0', () => {
