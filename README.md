@@ -18,12 +18,12 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 - Sports headline filtering and article links when the RSS feed provides a URL
 - 30-day archive of headline snapshots with previous/next navigation
 - Mobile-friendly practice interface
-- 5, 10, 15, 20, 25, and 30 WPM copy speeds
+- 5, 7.5, 10, 15, 20, and 30 WPM copy speeds
 - Farnsworth timing below 20 WPM: characters at 20 WPM, spacing stretched for slower selected speeds
 - True faster timing above 20 WPM: characters and spacing both speed up
 - 5/10/15 minute sessions
 - Adjustable sidetone frequency
-- Google Cast experiment: prebuilt MP3 streams for all headlines at 5/10/15/20/25/30 WPM
+- Google Cast experiment: prebuilt MP3 streams for all headlines at 5/7.5/10/15/20/30 WPM
 
 ## Notes
 
@@ -39,5 +39,5 @@ or 6 PM. Requests serve the current cache/archive and make sure the timer is run
 fetch RSS feeds inline.
 
 After each headline refresh, the server also prebuilds Cast media for the current headline set:
-mono MP3 at 44.1 kHz / 48 kbps, 550 Hz, for 5/10/15/20/25/30 WPM. `/api/cast-audio` returns the manifest and
+mono MP3 at 44.1 kHz / 48 kbps, 550 Hz, for 5/7.5/10/15/20/30 WPM. `/api/cast-audio` returns the manifest and
 path-versioned `/api/cast-audio/:mediaVersion/:speedWpm.mp3` URLs for cached media files.

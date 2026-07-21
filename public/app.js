@@ -6,7 +6,7 @@ import {
 } from './playback-state.js';
 import { unitsForHeadline } from './morse-timing.js';
 
-const SUPPORTED_SPEEDS_WPM = [5, 10, 15, 20, 25, 30];
+const SUPPORTED_SPEEDS_WPM = [5, 7.5, 10, 15, 20, 30];
 const START_DELAY_MS = 2000;
 const STALE_MS = 6 * 60 * 60 * 1000;
 const PLAYBACK_STATE_COOKIE = 'morseNewsPlaybackState';

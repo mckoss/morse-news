@@ -11,7 +11,10 @@ test('page template uses package-driven placeholders for deployed version', asyn
   assert.match(html, /src="\/app\.js\?v=\{\{APP_ASSET_VERSION\}\}"/);
   assert.match(html, /by <a href="https:\/\/www\.qrz\.com\/db\/K7MCK">K7MCK<\/a>/);
   assert.match(html, /cast_sender\.js\?loadCastFramework=1/);
-  assert.match(html, /data-speed="25"/);
+  assert.match(html, /data-speed="7.5"/);
+  assert.doesNotMatch(html, /data-speed="25"/);
+  assert.match(html, /<option value="7\.5">7\.5 WPM<\/option>/);
+  assert.doesNotMatch(html, /<option value="25">25 WPM<\/option>/);
   assert.match(html, /data-speed="30"/);
   assert.match(html, /<span>Cast latest headlines<\/span>/);
   assert.match(html, /Latest headline set only/);
