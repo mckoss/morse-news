@@ -5,6 +5,9 @@ const DOT_DIAMETER = 8;
 const SYMBOL_GAP = DOT_DIAMETER;
 const DASH_WIDTH = DOT_DIAMETER * 3;
 const SYMBOL_HEIGHT = DOT_DIAMETER + 4;
+const CHARACTER_WPM = 20;
+const EFFECTIVE_WPM = 5;
+const TONE_FREQUENCY_HZ = 550;
 
 const LABELS = new Map([
   ['.', 'period'],
@@ -25,6 +28,21 @@ const LABELS = new Map([
 ]);
 
 const container = document.querySelector('#reference-tables');
+const showCodes = document.querySelector('#show-codes');
+const audioStatus = document.querySelector('#reference-audio-status');
+const audioState = {
+  context: null,
+  oscillator: null,
+  gain: null,
+  timeout: null,
+  waitResolve: null,
+  runId: 0,
+  activeButton: null,
+};
+
+showCodes?.addEventListener('change', () => {
+  container?.classList.toggle('show-codes', showCodes.checked);
+});
 
 if (container) {
   container.replaceChildren(
@@ -53,6 +71,7 @@ function renderTable(characters) {
     body.append(renderRow({
       label: displayLabel(character),
       code: MORSE[character],
+      audioLabel: displayLabel(character),
     }));
   });
   table.append(body);
@@ -72,12 +91,18 @@ function renderHeader() {
   return head;
 }
 
-function renderRow({ label, code }) {
+function renderRow({ label, code, audioLabel = label }) {
   const row = document.createElement('tr');
 
   const characterCell = document.createElement('td');
   characterCell.className = 'morse-character';
-  characterCell.textContent = label;
+  const playButton = document.createElement('button');
+  playButton.className = 'morse-play';
+  playButton.type = 'button';
+  playButton.textContent = label;
+  playButton.setAttribute('aria-label', `Play ${audioLabel} at Farnsworth ${CHARACTER_WPM}/${EFFECTIVE_WPM} WPM`);
+  playButton.addEventListener('click', () => playCode(code, audioLabel, playButton));
+  characterCell.append(playButton);
 
   const codeCell = document.createElement('td');
   codeCell.className = 'morse-code';
@@ -85,6 +110,88 @@ function renderRow({ label, code }) {
 
   row.append(characterCell, codeCell);
   return row;
+}
+
+async function playCode(code, label, button) {
+  cancelPlayback();
+  const runId = audioState.runId;
+
+  try {
+    await ensureAudio();
+    if (runId !== audioState.runId) return;
+
+    audioState.activeButton = button;
+    button.classList.add('playing');
+    if (audioStatus) audioStatus.textContent = `Playing ${label}`;
+
+    const dotMs = 1200 / CHARACTER_WPM;
+    for (const [index, symbol] of [...code].entries()) {
+      if (runId !== audioState.runId) return;
+      setTone(true);
+      await wait(symbol === '.' ? dotMs : dotMs * 3);
+      if (index < code.length - 1) {
+        setTone(false);
+        await wait(dotMs);
+      }
+    }
+  } catch (error) {
+    console.error('Could not play Morse reference audio', error);
+    if (audioStatus) audioStatus.textContent = 'Could not play audio';
+  } finally {
+    if (runId === audioState.runId) {
+      setTone(false);
+      button.classList.remove('playing');
+      audioState.activeButton = null;
+      if (audioStatus) audioStatus.textContent = `Finished ${label}`;
+    }
+  }
+}
+
+async function ensureAudio() {
+  if (!audioState.context) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) throw new Error('Web Audio is not supported');
+    audioState.context = new AudioContext();
+    audioState.oscillator = audioState.context.createOscillator();
+    audioState.gain = audioState.context.createGain();
+    audioState.oscillator.type = 'sine';
+    audioState.oscillator.frequency.value = TONE_FREQUENCY_HZ;
+    audioState.gain.gain.value = 0.0001;
+    audioState.oscillator.connect(audioState.gain);
+    audioState.gain.connect(audioState.context.destination);
+    audioState.oscillator.start();
+  }
+  if (audioState.context.state === 'suspended') await audioState.context.resume();
+}
+
+function setTone(on) {
+  if (!audioState.context || !audioState.gain) return;
+  const now = audioState.context.currentTime;
+  audioState.gain.gain.cancelScheduledValues(now);
+  audioState.gain.gain.setTargetAtTime(on ? 0.18 : 0.0001, now, 0.004);
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    audioState.waitResolve = resolve;
+    audioState.timeout = setTimeout(() => {
+      audioState.timeout = null;
+      audioState.waitResolve = null;
+      resolve();
+    }, ms);
+  });
+}
+
+function cancelPlayback() {
+  audioState.runId += 1;
+  setTone(false);
+  clearTimeout(audioState.timeout);
+  audioState.timeout = null;
+  const resolve = audioState.waitResolve;
+  audioState.waitResolve = null;
+  resolve?.();
+  audioState.activeButton?.classList.remove('playing');
+  audioState.activeButton = null;
 }
 
 function displayLabel(character) {
@@ -149,6 +256,7 @@ function renderProsign() {
   body.append(renderRow({
     label: 'ar (end of headline)',
     code: END_OF_MESSAGE_PROSIGN,
+    audioLabel: 'AR, end of headline',
   }));
   table.append(body);
 

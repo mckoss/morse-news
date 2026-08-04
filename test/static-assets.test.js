@@ -145,8 +145,13 @@ test('cast sender wires remote player pause and resume controls', async () => {
 });
 
 test('reference page renders Morse codes as scaled SVG dots and dashes', async () => {
+  const referenceHtml = await readFile(new URL('../public/reference.html', import.meta.url), 'utf8');
   const referenceJs = await readFile(new URL('../public/reference.js', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
 
+  assert.match(referenceHtml, /<input id="show-codes" type="checkbox">/);
+  assert.match(referenceHtml, /<span>Show\/Hide Codes<\/span>/);
+  assert.doesNotMatch(referenceHtml, /id="show-codes"[^>]+checked/);
   assert.match(referenceJs, /\['character', 'code'\]/);
   assert.match(referenceJs, /return `\$\{character\} \(\$\{name\}\)`/);
   assert.match(referenceJs, /return character\.toLowerCase\(\)/);
@@ -156,6 +161,12 @@ test('reference page renders Morse codes as scaled SVG dots and dashes', async (
   assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'circle'\)/);
   assert.match(referenceJs, /document\.createElementNS\(SVG_NS, 'rect'\)/);
   assert.match(referenceJs, /dash\.setAttribute\('rx', String\(DOT_DIAMETER \/ 2\)\)/);
+  assert.match(referenceJs, /const CHARACTER_WPM = 20/);
+  assert.match(referenceJs, /const EFFECTIVE_WPM = 5/);
+  assert.match(referenceJs, /playButton\.addEventListener\('click', \(\) => playCode\(code, audioLabel, playButton\)\)/);
+  assert.match(referenceJs, /const dotMs = 1200 \/ CHARACTER_WPM/);
+  assert.match(styles, /\.reference-tables:not\(\.show-codes\) \.morse-code,/);
+  assert.match(styles, /\.reference-tables:not\(\.show-codes\) \.morse-table th:nth-child\(2\) \{\s+display: none;/);
   assert.doesNotMatch(referenceJs, /codeCell\.textContent = code/);
   assert.doesNotMatch(referenceJs, /'Name'/);
 });

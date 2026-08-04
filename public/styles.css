@@ -262,6 +262,20 @@ output { color: var(--text); }
   margin-bottom: 0;
   font-size: 0.92rem;
 }
+.reference-code-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.reference-code-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
 .quiet-link {
   display: inline-flex;
   align-items: center;
@@ -291,6 +305,14 @@ output { color: var(--text); }
 }
 .morse-table th:first-child,
 .morse-table td:first-child {
+  width: 100%;
+}
+.reference-tables:not(.show-codes) .morse-code,
+.reference-tables:not(.show-codes) .morse-table th:nth-child(2) {
+  display: none;
+}
+.reference-tables.show-codes .morse-table th:first-child,
+.reference-tables.show-codes .morse-table td:first-child {
   width: 46%;
 }
 .morse-table th,
@@ -318,6 +340,29 @@ output { color: var(--text); }
   color: var(--text);
   font-size: 1.1rem;
 }
+.morse-play {
+  width: 100%;
+  margin: -6px -8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.morse-play:hover,
+.morse-play:focus-visible,
+.morse-play.playing {
+  background: rgb(255 255 255 / 0.09);
+  color: var(--accent);
+  outline: none;
+}
+.morse-play:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
 .morse-code {
   color: var(--accent-2);
 }
@@ -329,6 +374,17 @@ output { color: var(--text); }
   fill: currentColor;
 }
 .hidden { display: none !important; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 @media (min-width: 760px) {
   .app-shell {
