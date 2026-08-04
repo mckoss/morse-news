@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MORSE, MORSE_REFERENCE_GROUPS, sanitize, timingUnits, unitsForText } from '../public/morse-timing.js';
+import {
+  MORSE,
+  MORSE_REFERENCE_GROUPS,
+  sanitize,
+  timingUnits,
+  unitsForText,
+  validateTimingSpeeds,
+} from '../public/morse-timing.js';
 
 test('timingUnits uses Farnsworth spacing below 20 WPM', () => {
   assert.deepEqual(timingUnits(5), { charUnit: 60, spacingUnit: 240 });
@@ -19,6 +26,25 @@ test('unitsForText shortens character elements above 20 WPM', () => {
 
   assert.equal(twentyWpmDit, 60);
   assert.equal(thirtyWpmDit, 40);
+});
+
+test('timingUnits supports a custom character speed', () => {
+  assert.deepEqual(timingUnits(5, 25), { charUnit: 48, spacingUnit: 240 });
+  assert.equal(unitsForText('E', 5, 25)[0].events[0].ms, 48);
+});
+
+test('custom character speed must be at least the effective speed', () => {
+  assert.deepEqual(validateTimingSpeeds(20, 5), {
+    valid: true,
+    characterWpm: 20,
+    effectiveWpm: 5,
+    message: '',
+  });
+  assert.deepEqual(validateTimingSpeeds(5, 10), {
+    valid: false,
+    message: 'Character speed must be greater than or equal to effective speed.',
+  });
+  assert.equal(validateTimingSpeeds('', 5).valid, false);
 });
 
 test('reference groups cover all headline characters the app can emit', () => {

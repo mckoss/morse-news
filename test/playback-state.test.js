@@ -96,6 +96,13 @@ test('playback preferences can recover from stale cookie or storage state', asyn
   assert.match(appJs, /readPlaybackStateStorage\(\)/);
   assert.match(appJs, /setFrequency\(Number\(saved\?\.frequencyHz\)/);
   assert.match(appJs, /frequencyHz:\s*Number\(els\.frequency\.value\)/);
+  assert.match(appJs, /unitsForHeadline\(title, state\.speed, state\.characterSpeed\)/);
+  assert.match(appJs, /speedMode:\s*state\.speedMode/);
+  assert.match(appJs, /characterSpeedWpm:\s*state\.characterSpeed/);
+  assert.match(appJs, /effectiveSpeedWpm:\s*state\.speed/);
+  assert.match(appJs, /state\.characterSpeed = Math\.max\(20, speed\)/);
+  assert.match(appJs, /validateTimingSpeeds\(els\.characterSpeed\.value, els\.effectiveSpeed\.value\)/);
+  assert.match(appJs, /els\.characterSpeed\.reportValidity\(\)/);
   assert.match(appJs, /els\.castSpeed\.addEventListener\('change', \(\) => setCastSpeed\(Number\(els\.castSpeed\.value\)\)\)/);
   assert.match(appJs, /setCastSpeed\(Number\(saved\?\.castSpeedWpm\) \|\| Number\(els\.castSpeed\.value\), \{ persist: false \}\)/);
   assert.match(appJs, /castSpeedWpm:\s*Number\(els\.castSpeed\.value\)/);

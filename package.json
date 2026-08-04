@@ -1,11 +1,12 @@
 {
   "name": "morse-news",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Daily news headline Morse code practice site using Farnsworth timing.",
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "install-test-deps": "playwright install chromium",
     "test": "node --test"
   },
   "dependencies": {

@@ -4,7 +4,7 @@ import {
   nextHeadlineIndex as computeNextHeadlineIndex,
   resolveCompletedHeadlineIndex,
 } from './playback-state.js';
-import { unitsForHeadline } from './morse-timing.js';
+import { unitsForHeadline, validateTimingSpeeds } from './morse-timing.js';
 
 const SUPPORTED_SPEEDS_WPM = [5, 7.5, 10, 15, 20, 30];
 const START_DELAY_MS = 2000;
@@ -22,6 +22,8 @@ const state = {
   payload: null,
   historyIndex: 0,
   speed: 5,
+  characterSpeed: 20,
+  speedMode: 'preset',
   playing: false,
   sessionActive: false,
   audio: null,
@@ -69,13 +71,20 @@ const els = {
   minutes: document.querySelector('#minutes'),
   frequency: document.querySelector('#frequency'),
   frequencyLabel: document.querySelector('#frequency-label'),
+  characterSpeed: document.querySelector('#character-speed'),
+  effectiveSpeed: document.querySelector('#effective-speed'),
+  speedError: document.querySelector('#speed-error'),
 };
 
 document.querySelectorAll('.speed').forEach((button) => {
   button.addEventListener('click', () => {
-    setSpeed(Number(button.dataset.speed));
+    if (button.dataset.speed === 'custom') selectCustomSpeed();
+    else setSpeed(Number(button.dataset.speed));
   });
 });
+
+els.characterSpeed.addEventListener('input', updateCustomSpeed);
+els.effectiveSpeed.addEventListener('input', updateCustomSpeed);
 
 els.frequency.addEventListener('input', () => {
   setFrequency(Number(els.frequency.value));
@@ -137,10 +146,49 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
 function setSpeed(speed, { persist = true } = {}) {
   if (!SUPPORTED_SPEEDS_WPM.includes(speed)) return;
   state.speed = speed;
+  state.characterSpeed = Math.max(20, speed);
+  state.speedMode = 'preset';
+  els.characterSpeed.value = String(state.characterSpeed);
+  els.effectiveSpeed.value = String(state.speed);
+  els.characterSpeed.setCustomValidity('');
+  els.effectiveSpeed.setCustomValidity('');
   document.querySelectorAll('.speed').forEach((item) => {
     item.classList.toggle('active', Number(item.dataset.speed) === speed);
   });
+  showSpeedError('');
   if (persist) savePlaybackState();
+}
+
+function selectCustomSpeed({ persist = true } = {}) {
+  state.speedMode = 'custom';
+  document.querySelectorAll('.speed').forEach((item) => {
+    item.classList.toggle('active', item.dataset.speed === 'custom');
+  });
+  applyCustomSpeed({ persist });
+}
+
+function updateCustomSpeed() {
+  selectCustomSpeed();
+}
+
+function applyCustomSpeed({ persist = true } = {}) {
+  const result = validateTimingSpeeds(els.characterSpeed.value, els.effectiveSpeed.value);
+  const message = result.message;
+  els.characterSpeed.setCustomValidity(message);
+  els.effectiveSpeed.setCustomValidity(message);
+  showSpeedError(message);
+  if (!result.valid) return false;
+
+  state.characterSpeed = result.characterWpm;
+  state.speed = result.effectiveWpm;
+  if (persist) savePlaybackState();
+  if (state.sessionActive) updatePlaybackStatus();
+  return true;
+}
+
+function showSpeedError(message) {
+  els.speedError.textContent = message;
+  els.speedError.classList.toggle('hidden', !message);
 }
 
 function setDurationMinutes(minutes, { persist = true } = {}) {
@@ -451,6 +499,10 @@ function updateSnapshotControls() {
 
 async function startPractice() {
   if (state.headlines.length === 0) return;
+  if (state.speedMode === 'custom' && !applyCustomSpeed()) {
+    els.characterSpeed.reportValidity();
+    return;
+  }
 
   state.pausedPlaybackView = null;
   if (state.sessionActive) {
@@ -646,7 +698,7 @@ async function playLoop(runId) {
 
 async function playHeadline(title, runId) {
   for (let unitIndex = state.currentUnitIndex; ; unitIndex += 1) {
-    const units = unitsForHeadline(title, state.speed);
+    const units = unitsForHeadline(title, state.speed, state.characterSpeed);
     if (unitIndex >= units.length) break;
     const unit = units[unitIndex];
     if (!state.playing || runId !== state.playbackRunId) return false;
@@ -698,7 +750,10 @@ function updatePlaybackStatus() {
   const remainingMs = remainingSessionMs();
   const elapsed = Math.max(0, state.durationMs - remainingMs);
   const duration = Math.max(1, state.durationMs);
-  els.progress.textContent = `${state.speed} WPM Farnsworth · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
+  const speedText = state.characterSpeed === state.speed
+    ? `${state.speed} WPM`
+    : `${state.characterSpeed} character / ${state.speed} effective WPM`;
+  els.progress.textContent = `${speedText} · ${Math.max(0, Math.ceil(remainingMs / 60000))} min left`;
   els.meter.style.width = `${Math.min(100, (elapsed / duration) * 100)}%`;
 }
 
@@ -723,7 +778,15 @@ function updateHeadlineMarker() {
 
 function restorePlaybackPreferences() {
   const saved = readPlaybackState();
-  setSpeed(Number(saved?.speed) || state.speed, { persist: false });
+  const savedEffectiveSpeed = Number(saved?.effectiveSpeedWpm ?? saved?.speed) || state.speed;
+  const savedCharacterSpeed = Number(saved?.characterSpeedWpm);
+  if (saved?.speedMode === 'custom' && validateTimingSpeeds(savedCharacterSpeed, savedEffectiveSpeed).valid) {
+    els.characterSpeed.value = String(savedCharacterSpeed);
+    els.effectiveSpeed.value = String(savedEffectiveSpeed);
+    selectCustomSpeed({ persist: false });
+  } else {
+    setSpeed(savedEffectiveSpeed, { persist: false });
+  }
   setDurationMinutes(Number(saved?.durationMinutes) || Math.round(state.durationMs / 60000), { persist: false });
   setFrequency(Number(saved?.frequencyHz) || Number(els.frequency.value), { persist: false });
   setCastSpeed(Number(saved?.castSpeedWpm) || Number(els.castSpeed.value), { persist: false });
@@ -760,6 +823,9 @@ function savePlaybackState() {
   const playbackState = {
     version: 2,
     speed: state.speed,
+    speedMode: state.speedMode,
+    characterSpeedWpm: state.characterSpeed,
+    effectiveSpeedWpm: state.speed,
     durationMinutes: Math.round(state.durationMs / 60000),
     frequencyHz: Number(els.frequency.value),
     castSpeedWpm: Number(els.castSpeed.value),

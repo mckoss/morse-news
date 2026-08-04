@@ -97,7 +97,7 @@ h2 { margin-bottom: 10px; font-size: 1.2rem; }
   gap: 12px;
 }
 
-button, select {
+button, select, input[type="number"] {
   border: 0;
   border-radius: 15px;
   padding: 14px 16px;
@@ -111,6 +111,21 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 button.primary { background: var(--accent); color: #201504; }
 button.quiet { min-height: 0; padding: 9px 12px; color: var(--accent-2); }
 button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
+.speed-custom { grid-column: 1 / -1; }
+.custom-speed-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.custom-speed-fields input:invalid {
+  outline: 2px solid #ff9d8f;
+}
+.speed-error {
+  margin: -8px 0 0;
+  color: #ffb4a8;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
 .cast-panel {
   display: grid;
   gap: 10px;
@@ -160,6 +175,10 @@ button.speed.active { outline: 3px solid var(--accent); background: #263b4d; }
   gap: 8px;
   color: var(--muted);
   font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .custom-speed-fields { grid-template-columns: 1fr; }
 }
 
 input[type="range"] { width: 100%; accent-color: var(--accent); }
@@ -309,7 +328,7 @@ output { color: var(--text); }
   overflow: visible;
   fill: currentColor;
 }
-.hidden { display: none; }
+.hidden { display: none !important; }
 
 @media (min-width: 760px) {
   .app-shell {

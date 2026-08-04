@@ -64,13 +64,14 @@ async function withApp(run) {
   server.stdout.resume();
   server.stderr.resume();
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  let browser;
   try {
     await waitForServer(`http://127.0.0.1:${port}`);
+    browser = await chromium.launch();
+    const page = await browser.newPage();
     await run({ page, url: `http://127.0.0.1:${port}` });
   } finally {
-    await browser.close();
+    await browser?.close();
     await stopServer(server);
   }
 }

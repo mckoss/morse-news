@@ -16,6 +16,9 @@ test('page template uses package-driven placeholders for deployed version', asyn
   assert.match(html, /<option value="7\.5">7\.5 WPM<\/option>/);
   assert.doesNotMatch(html, /<option value="25">25 WPM<\/option>/);
   assert.match(html, /data-speed="30"/);
+  assert.match(html, /data-speed="custom">Custom</);
+  assert.match(html, /id="character-speed"[^>]+value="20"/);
+  assert.match(html, /id="effective-speed"[^>]+value="5"/);
   assert.match(html, /<span>Cast latest headlines<\/span>/);
   assert.match(html, /Latest headline set only/);
   assert.match(html, /href="\/reference"/);

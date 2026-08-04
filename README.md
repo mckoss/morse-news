@@ -11,6 +11,17 @@ npm start
 
 Open <http://localhost:3000> on a desktop, or from a phone on the same network using the host machine's LAN IP and port 3000.
 
+## Test
+
+Install the Playwright-managed Chromium browser once after `npm install`, then run the test suite:
+
+```bash
+npm run install-test-deps
+npm test
+```
+
+Playwright uses its own pinned Chromium build by default, even when Chrome is already installed on the system. CI runs the same browser-install script with `--with-deps` to install required Linux system packages as well.
+
 ## Features
 
 - Cached headline feed at `/api/headlines`, refreshed on Pacific 6-hour windows
@@ -18,7 +29,7 @@ Open <http://localhost:3000> on a desktop, or from a phone on the same network u
 - Sports headline filtering and article links when the RSS feed provides a URL
 - 30-day archive of headline snapshots with previous/next navigation
 - Mobile-friendly practice interface
-- 5, 7.5, 10, 15, 20, and 30 WPM copy speeds
+- 5, 7.5, 10, 15, 20, and 30 WPM presets plus custom character/effective practice speeds
 - Farnsworth timing below 20 WPM: characters at 20 WPM, spacing stretched for slower selected speeds
 - True faster timing above 20 WPM: characters and spacing both speed up
 - 5/10/15 minute sessions

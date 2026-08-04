@@ -26,16 +26,16 @@ export const MORSE_REFERENCE_GROUPS = [
   },
 ];
 
-export function unitsForHeadline(text, effectiveWpm) {
+export function unitsForHeadline(text, effectiveWpm, characterWpm) {
   return [
-    ...unitsForText(text, effectiveWpm),
-    ...unitsForProsign(END_OF_MESSAGE_PROSIGN, effectiveWpm),
+    ...unitsForText(text, effectiveWpm, characterWpm),
+    ...unitsForProsign(END_OF_MESSAGE_PROSIGN, effectiveWpm, characterWpm),
     { repeatable: false, events: [{ on: false, ms: MESSAGE_GAP_MS }] },
   ];
 }
 
-export function unitsForText(text, effectiveWpm) {
-  const { charUnit, spacingUnit } = timingUnits(effectiveWpm);
+export function unitsForText(text, effectiveWpm, characterWpm) {
+  const { charUnit, spacingUnit } = timingUnits(effectiveWpm, characterWpm);
   const units = [];
   const words = sanitize(text).split(/\s+/).filter(Boolean);
 
@@ -57,8 +57,8 @@ export function unitsForText(text, effectiveWpm) {
   return units;
 }
 
-export function unitsForProsign(code, effectiveWpm) {
-  const { charUnit, spacingUnit } = timingUnits(effectiveWpm);
+export function unitsForProsign(code, effectiveWpm, characterWpm) {
+  const { charUnit, spacingUnit } = timingUnits(effectiveWpm, characterWpm);
   const units = [{ repeatable: false, events: [{ on: false, ms: spacingUnit * 7 }] }];
   const events = [];
 
@@ -71,11 +71,24 @@ export function unitsForProsign(code, effectiveWpm) {
   return units;
 }
 
-export function timingUnits(effectiveWpm) {
+export function validateTimingSpeeds(characterWpm, effectiveWpm) {
+  const character = Number(characterWpm);
+  const effective = Number(effectiveWpm);
+  if (!Number.isFinite(character) || character <= 0 || !Number.isFinite(effective) || effective <= 0) {
+    return { valid: false, message: 'Enter positive character and effective speeds.' };
+  }
+  if (character < effective) {
+    return { valid: false, message: 'Character speed must be greater than or equal to effective speed.' };
+  }
+  return { valid: true, characterWpm: character, effectiveWpm: effective, message: '' };
+}
+
+export function timingUnits(effectiveWpm, requestedCharacterWpm) {
   // Farnsworth below 20 WPM: characters stay at 20 WPM while spacing stretches.
   // Above 20 WPM, send true faster code with matching character and spacing timing.
   const safeWpm = Math.max(1, Number(effectiveWpm) || FARNSWORTH_CHARACTER_WPM);
-  const characterWpm = Math.max(FARNSWORTH_CHARACTER_WPM, safeWpm);
+  const defaultCharacterWpm = Math.max(FARNSWORTH_CHARACTER_WPM, safeWpm);
+  const characterWpm = Math.max(safeWpm, Number(requestedCharacterWpm) || defaultCharacterWpm);
   return {
     charUnit: 1200 / characterWpm,
     spacingUnit: 1200 / safeWpm,

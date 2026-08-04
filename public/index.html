@@ -60,7 +60,20 @@
         <button class="speed" data-speed="15">15 WPM</button>
         <button class="speed" data-speed="20">20 WPM</button>
         <button class="speed" data-speed="30">30 WPM</button>
+        <button class="speed speed-custom" data-speed="custom">Custom</button>
       </div>
+
+      <div class="custom-speed-fields" aria-label="Practice timing">
+        <label class="field">
+          <span>Character speed (WPM)</span>
+          <input id="character-speed" type="number" min="1" step="0.5" value="20" inputmode="decimal">
+        </label>
+        <label class="field">
+          <span>Effective speed (WPM)</span>
+          <input id="effective-speed" type="number" min="1" step="0.5" value="5" inputmode="decimal">
+        </label>
+      </div>
+      <p id="speed-error" class="speed-error hidden" role="alert"></p>
 
       <label class="field">
         <span>Session length</span>
