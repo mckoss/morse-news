@@ -206,3 +206,13 @@ function displayVersionForPackage(version) {
   const match = /^(\d+)\.0\.(\d+)$/.exec(version);
   return match ? `${match[1]}.${match[2]}` : version;
 }
+
+test('public pages load the shared analytics tag once and no Google Analytics', async () => {
+  for (const page of ['index.html', 'reference.html']) {
+    const html = await readFile(new URL(`../public/${page}`, import.meta.url), 'utf8');
+    const tags = html.match(/<script defer src="https:\/\/mckoss\.com\/js\/mk\.js"><\/script>/g) || [];
+
+    assert.equal(tags.length, 1, page);
+    assert.doesNotMatch(html, /googletagmanager|gtag\(/, page);
+  }
+});
