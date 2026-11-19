@@ -22,6 +22,10 @@
       <p class="byline">by <a href="https://www.qrz.com/db/K7MCK">K7MCK</a></p>
       <p class="lede">Practice Morse code with today’s headlines, sent using Farnsworth timing.</p>
       <p class="hero-link"><a href="/reference">Morse code reference</a></p>
+      <p id="install-row" class="hero-install hidden">
+        <button id="install-app" class="quiet" type="button">Install app</button>
+        <span id="install-hint" class="muted hidden">Tap Share, then Add to Home Screen.</span>
+      </p>
     </section>
 
     <section class="panel controls" aria-labelledby="practice-heading">
@@ -120,6 +124,12 @@
   </main>
 
   <script>
+    window.__morseNewsInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      window.__morseNewsInstallPrompt = event;
+      window.dispatchEvent(new Event('morse-news-install-ready'));
+    });
     window.__morseNewsCastReady = false;
     window.__onGCastApiAvailable = (isAvailable) => {
       window.__morseNewsCastReady = isAvailable;
