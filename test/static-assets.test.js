@@ -165,6 +165,8 @@ test('reference page renders Morse codes as scaled SVG dots and dashes', async (
   assert.match(referenceJs, /const EFFECTIVE_WPM = 5/);
   assert.match(referenceJs, /playButton\.addEventListener\('click', \(\) => playCode\(code, audioLabel, playButton\)\)/);
   assert.match(referenceJs, /const dotMs = 1200 \/ CHARACTER_WPM/);
+  assert.match(referenceJs, /const PLAYBACK_STATE_STORAGE_KEY = 'morseNewsPlaybackState'/);
+  assert.match(referenceJs, /oscillator\.frequency\.value = savedToneFrequency\(\)/);
   assert.match(styles, /\.reference-tables:not\(\.show-codes\) \.morse-code,/);
   assert.match(styles, /\.reference-tables:not\(\.show-codes\) \.morse-table th:nth-child\(2\) \{\s+display: none;/);
   assert.doesNotMatch(referenceJs, /codeCell\.textContent = code/);

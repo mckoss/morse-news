@@ -7,7 +7,10 @@ const DASH_WIDTH = DOT_DIAMETER * 3;
 const SYMBOL_HEIGHT = DOT_DIAMETER + 4;
 const CHARACTER_WPM = 20;
 const EFFECTIVE_WPM = 5;
-const TONE_FREQUENCY_HZ = 550;
+const DEFAULT_TONE_FREQUENCY_HZ = 550;
+const MIN_TONE_FREQUENCY_HZ = 400;
+const MAX_TONE_FREQUENCY_HZ = 900;
+const PLAYBACK_STATE_STORAGE_KEY = 'morseNewsPlaybackState';
 
 const LABELS = new Map([
   ['.', 'period'],
@@ -155,13 +158,25 @@ async function ensureAudio() {
     audioState.oscillator = audioState.context.createOscillator();
     audioState.gain = audioState.context.createGain();
     audioState.oscillator.type = 'sine';
-    audioState.oscillator.frequency.value = TONE_FREQUENCY_HZ;
+    audioState.oscillator.frequency.value = savedToneFrequency();
     audioState.gain.gain.value = 0.0001;
     audioState.oscillator.connect(audioState.gain);
     audioState.gain.connect(audioState.context.destination);
     audioState.oscillator.start();
   }
+  else audioState.oscillator.frequency.value = savedToneFrequency();
   if (audioState.context.state === 'suspended') await audioState.context.resume();
+}
+
+function savedToneFrequency() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PLAYBACK_STATE_STORAGE_KEY) ?? 'null');
+    const frequency = Number(saved?.frequencyHz);
+    if (frequency >= MIN_TONE_FREQUENCY_HZ && frequency <= MAX_TONE_FREQUENCY_HZ) return frequency;
+  } catch (error) {
+    console.warn('Could not read saved tone frequency', error);
+  }
+  return DEFAULT_TONE_FREQUENCY_HZ;
 }
 
 function setTone(on) {

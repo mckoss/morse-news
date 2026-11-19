@@ -10,6 +10,7 @@ const ARCHIVE_FILE = path.join(CACHE_DIR, 'headlines-archive.json');
 const MAX_HEADLINES = 24;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const ARCHIVE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const MIN_HEADLINE_WORDS = 4;
 const SPORTS_RE = /\b(sports?|football|basketball|baseball|soccer|tennis|golf|hockey|olympics?|nba|nfl|mlb|nhl|fifa|wimbledon|championships?|tournament|playoffs?|athlete|player|coach|serena)\b/i;
 
 const SOURCES = [
@@ -50,7 +51,7 @@ export async function fetchHeadlines({ force = false, now = new Date() } = {}) {
   const settled = await Promise.allSettled(SOURCES.map(fetchSource));
   const items = settled
     .flatMap((result) => result.status === 'fulfilled' ? result.value : [])
-    .filter((item) => item.title.length >= 8);
+    .filter((item) => isUsefulHeadline(item.title));
 
   const unique = excludePreviousSnapshotHeadlines(dedupe(items), cached).slice(0, MAX_HEADLINES);
   if (unique.length === 0 && cached) {
@@ -122,6 +123,11 @@ export function parseRssItems(xml) {
   return itemBlocks
     .map(parseRssItem)
     .filter((item) => item.title);
+}
+
+export function isUsefulHeadline(title) {
+  const words = String(title ?? '').split(/\s+/).filter((word) => /[a-z0-9]/i.test(word));
+  return words.length >= MIN_HEADLINE_WORDS;
 }
 
 export function normalizeHeadline(title) {
