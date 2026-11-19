@@ -81,6 +81,45 @@ test('server renders reference page with package-driven asset URLs', async () =>
   }
 });
 
+test('pages link the PWA manifest and icons', async () => {
+  for (const file of ['index.html', 'reference.html']) {
+    const html = await readFile(new URL(`../public/${file}`, import.meta.url), 'utf8');
+    assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+    assert.match(html, /<link rel="apple-touch-icon" href="\/icons\/apple-touch-icon\.png">/);
+  }
+
+  const manifest = JSON.parse(await readFile(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
+  assert.equal(manifest.start_url, '/');
+  assert.equal(manifest.display, 'standalone');
+  for (const icon of manifest.icons) {
+    await readFile(new URL(`../public${icon.src}`, import.meta.url));
+  }
+});
+
+test('server renders service worker with package version and revalidating cache', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const port = 38000 + Math.floor(Math.random() * 1000);
+  const child = spawn(process.execPath, ['server.js'], {
+    cwd: new URL('..', import.meta.url),
+    env: { ...process.env, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  try {
+    await waitForServer(child);
+    const res = await fetch(`http://127.0.0.1:${port}/sw.js`, { cache: 'no-store' });
+    const js = await res.text();
+
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /javascript/);
+    assert.equal(res.headers.get('cache-control'), 'no-cache, must-revalidate');
+    assert.match(js, new RegExp(`const APP_VERSION = '${escapeRegExp(packageJson.version)}'`));
+    assert.doesNotMatch(js, /\{\{APP_/);
+  } finally {
+    child.kill();
+  }
+});
+
 test('static assets revalidate instead of sticking in mobile browser cache', async () => {
   const serverJs = await readFile(new URL('../server.js', import.meta.url), 'utf8');
 

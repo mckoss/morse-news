@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
 
@@ -28,7 +31,7 @@ const previousHeadlines = Array.from({ length: 12 }, (_, index) => ({
 }));
 
 test('browser resets stale legacy cursor when headline sets change', async () => {
-  await withApp(async ({ page, url }) => {
+  await withApp({ contextOptions: { serviceWorkers: 'block' } }, async ({ page, url }) => {
     await mockHeadlineApi(page);
     await page.addInitScript(({ storageKey, savedState }) => {
       localStorage.setItem(storageKey, JSON.stringify(savedState));
@@ -54,11 +57,53 @@ test('browser resets stale legacy cursor when headline sets change', async () =>
   });
 });
 
-async function withApp(run) {
+test('installed app reloads saved headlines and reference page while offline', async () => {
+  const dataDir = await mkdtemp(path.join(tmpdir(), 'morse-news-offline-'));
+  const offlineHeadlines = [
+    'Offline practice headline number one',
+    'Offline practice headline number two',
+  ].map((title) => ({ title, source: 'Test Source', category: 'test', link: '' }));
+  await writeFile(path.join(dataDir, 'headlines-cache.json'), JSON.stringify({
+    fetchedAt: new Date().toISOString(),
+    headlines: offlineHeadlines,
+  }));
+
+  try {
+    await withApp({ env: { DATA_DIR: dataDir } }, async ({ context, page, url }) => {
+      await page.route('https://www.gstatic.com/**', (route) => route.fulfill({
+        contentType: 'application/javascript',
+        body: '',
+      }));
+
+      const manifest = await (await page.request.get(`${url}/manifest.webmanifest`)).json();
+      assert.equal(manifest.display, 'standalone');
+      assert.ok(manifest.icons.some((icon) => icon.sizes === '512x512'));
+
+      await page.goto(url);
+      await page.evaluate(() => navigator.serviceWorker.ready);
+      await page.reload();
+      await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+      await page.locator('.headline-title', { hasText: 'number one' }).waitFor();
+
+      await context.setOffline(true);
+      await page.reload();
+      await page.locator('.headline-title', { hasText: 'number two' }).waitFor();
+      await page.waitForFunction(() => document.querySelector('#snapshot-time')?.textContent.startsWith('Offline'));
+      assert.match(await page.locator('#headline-count').textContent(), /saved for offline practice/);
+
+      await page.goto(`${url}/reference`);
+      await page.locator('.morse-table .morse-play').first().waitFor();
+    });
+  } finally {
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
+
+async function withApp({ env = {}, contextOptions = {} } = {}, run) {
   const port = await findOpenPort();
   const server = spawn(process.execPath, ['server.js'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, ...env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.resume();
@@ -68,8 +113,9 @@ async function withApp(run) {
   try {
     await waitForServer(`http://127.0.0.1:${port}`);
     browser = await chromium.launch();
-    const page = await browser.newPage();
-    await run({ page, url: `http://127.0.0.1:${port}` });
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    await run({ context, page, url: `http://127.0.0.1:${port}` });
   } finally {
     await browser?.close();
     await stopServer(server);

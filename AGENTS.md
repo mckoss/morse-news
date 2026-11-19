@@ -54,6 +54,14 @@ release numbers in `public/index.html`.
 
 The app intentionally serves mutable static assets with `Cache-Control: no-cache, must-revalidate`; still bump query versions so mobile browsers and deployed pages reliably pick up changes.
 
+## Offline / PWA
+
+The app is an installable PWA. `public/manifest.webmanifest` and `public/icons/` provide install metadata. `public/sw.js` is rendered by the server at `/sw.js` with the `package.json` version substituted, so every release installs a fresh service worker and replaces the versioned shell cache.
+
+- Pages (`/`, `/reference`) and `/api/headlines` are network-first with a 4 second timeout, falling back to the last saved copy. Cached fallbacks carry `X-Morse-News-Offline: 1`, which the page uses to show offline state.
+- Static assets are cache-first from the versioned shell cache. If you add a new browser module or page, add it to `SHELL_URLS` in `public/sw.js`.
+- Other `/api/` routes (Cast) are never cached; Cast needs the network.
+
 ## Google Cast Notes
 
 Cast playback is controlled by the sender page, but the Google Cast receiver fetches media URLs directly.
