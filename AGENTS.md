@@ -62,6 +62,7 @@ The app is an installable PWA. `public/manifest.webmanifest` and `public/icons/`
 - When a fresh latest headline set arrives, the service worker also saves the last 7 days of archive sets (`HISTORY_DAYS` in `public/sw.js`) so Previous works offline. Archive indexes are relative to the latest set, so history is re-saved as a whole and dropped if the download is partial.
 - Static assets are cache-first from the versioned shell cache. If you add a new browser module or page, add it to `SHELL_URLS` in `public/sw.js`.
 - Other `/api/` routes (Cast) are never cached; Cast needs the network.
+- The homepage "Install app" button (`setupInstallButton` in `public/pwa.js`) uses the deferred `beforeinstallprompt` event on Chromium browsers, which is captured early by the inline script in `index.html`. On iOS it shows an Add to Home Screen hint instead. It stays hidden when the page is running as the installed app and on browsers that can't install.
 
 ## Google Cast Notes
 

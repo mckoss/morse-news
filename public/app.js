@@ -5,7 +5,7 @@ import {
   resolveCompletedHeadlineIndex,
 } from './playback-state.js';
 import { unitsForHeadline, validateTimingSpeeds } from './morse-timing.js';
-import { registerServiceWorker } from './pwa.js';
+import { registerServiceWorker, setupInstallButton } from './pwa.js';
 
 const SUPPORTED_SPEEDS_WPM = [5, 7.5, 10, 15, 20, 30];
 const START_DELAY_MS = 2000;
@@ -111,6 +111,11 @@ window.addEventListener('online', updateConnectivity);
 window.addEventListener('offline', updateConnectivity);
 
 registerServiceWorker();
+setupInstallButton({
+  row: document.querySelector('#install-row'),
+  button: document.querySelector('#install-app'),
+  hint: document.querySelector('#install-hint'),
+});
 restorePlaybackPreferences();
 setupCast();
 await loadHeadlines();

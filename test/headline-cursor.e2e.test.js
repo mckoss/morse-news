@@ -122,6 +122,54 @@ test('installed app reloads saved headlines and reference page while offline', a
   }
 });
 
+test('install button uses the browser install prompt and hides afterwards', async () => {
+  await withApp({ contextOptions: { serviceWorkers: 'block' } }, async ({ page, url }) => {
+    await mockHeadlineApi(page);
+    await page.goto(url);
+    await page.locator('.headline-title').first().waitFor();
+    assert.equal(await page.locator('#install-row').isVisible(), false);
+
+    await page.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true });
+      event.prompt = async () => { window.__installPromptShown = true; };
+      event.userChoice = Promise.resolve({ outcome: 'dismissed' });
+      window.dispatchEvent(event);
+    });
+    await page.getByRole('button', { name: 'Install app' }).click();
+    assert.equal(await page.evaluate(() => window.__installPromptShown), true);
+    assert.equal(await page.locator('#install-row').isVisible(), false);
+  });
+});
+
+test('install button shows Add to Home Screen hint on iOS', async () => {
+  const contextOptions = {
+    serviceWorkers: 'block',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  };
+  await withApp({ contextOptions }, async ({ page, url }) => {
+    await mockHeadlineApi(page);
+    await page.goto(url);
+    await page.getByRole('button', { name: 'Install app' }).click();
+    await page.getByText('Tap Share, then Add to Home Screen.').waitFor();
+  });
+});
+
+test('install button stays hidden when running as the installed app', async () => {
+  const contextOptions = {
+    serviceWorkers: 'block',
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  };
+  await withApp({ contextOptions }, async ({ page, url }) => {
+    await mockHeadlineApi(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'standalone', { value: true });
+    });
+    await page.goto(url);
+    await page.locator('.headline-title').first().waitFor();
+    assert.equal(await page.locator('#install-row').isVisible(), false);
+  });
+});
+
 async function withApp({ env = {}, contextOptions = {} } = {}, run) {
   const port = await findOpenPort();
   const server = spawn(process.execPath, ['server.js'], {
