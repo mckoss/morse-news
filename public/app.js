@@ -5,6 +5,7 @@ import {
   resolveCompletedHeadlineIndex,
 } from './playback-state.js';
 import { unitsForHeadline, validateTimingSpeeds } from './morse-timing.js';
+import { registerServiceWorker } from './pwa.js';
 
 const SUPPORTED_SPEEDS_WPM = [5, 7.5, 10, 15, 20, 30];
 const START_DELAY_MS = 2000;
@@ -16,10 +17,12 @@ const PLAYBACK_PROGRESS_TTL_MS = PLAYBACK_STATE_MAX_AGE_SECONDS * 1000;
 const CAST_NEW_SESSION_READY_DELAY_MS = 2500;
 const CAST_LOAD_RETRY_DELAY_MS = 1500;
 const CAST_LOAD_ATTEMPTS = 4;
+const OFFLINE_HEADER = 'X-Morse-News-Offline';
 
 const state = {
   headlines: [],
   payload: null,
+  servedOffline: false,
   historyIndex: 0,
   speed: 5,
   characterSpeed: 20,
@@ -104,6 +107,10 @@ els.stopCast.addEventListener('click', stopCasting);
 els.previous.addEventListener('click', () => loadHeadlines({ index: state.historyIndex + 1 }));
 els.next.addEventListener('click', () => loadHeadlines({ index: Math.max(0, state.historyIndex - 1) }));
 
+window.addEventListener('online', updateConnectivity);
+window.addEventListener('offline', updateConnectivity);
+
+registerServiceWorker();
 restorePlaybackPreferences();
 setupCast();
 await loadHeadlines();
@@ -124,6 +131,7 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
+    state.servedOffline = response.headers.get(OFFLINE_HEADER) === '1';
     const nextHeadlines = payload.headlines ?? [];
     const nextSetKey = nextHeadlines.length > 0
       ? headlineSetKey(nextHeadlines, payload.fetchedAt)
@@ -139,7 +147,9 @@ async function loadHeadlines({ forceUi = false, index = state.historyIndex } = {
     renderHeadlines(payload);
   } catch (error) {
     console.error(error);
-    els.headlineCount.textContent = 'Could not load headlines. Try refresh in a minute.';
+    els.headlineCount.textContent = isOffline()
+      ? 'Offline: that headline set is not saved on this device.'
+      : 'Could not load headlines. Try refresh in a minute.';
   }
 }
 
@@ -431,7 +441,7 @@ function updateCastSessionState() {
 }
 
 function setCastButtonsDisabled(disabled) {
-  const isDisabled = disabled || !state.castReady;
+  const isDisabled = disabled || !state.castReady || !navigator.onLine;
   els.castSpeed.disabled = isDisabled;
   els.startCast.disabled = isDisabled;
 }
@@ -467,7 +477,9 @@ function updateCastStopVisibility() {
 }
 
 function renderHeadlines(payload) {
-  els.headlineCount.textContent = `${state.headlines.length} headlines loaded`;
+  els.headlineCount.textContent = isOffline()
+    ? `${state.headlines.length} headlines saved for offline practice`
+    : `${state.headlines.length} headlines loaded`;
   updateSnapshotControls();
   els.headlines.innerHTML = state.headlines.map((item, index) => `
     <li data-headline-index="${index}">
@@ -491,10 +503,21 @@ function updateSnapshotControls() {
   const isStale = isCurrent && ageMs >= STALE_MS;
   const ageText = isCurrent ? ` · ${formatAge(ageMs)} old` : '';
   const archiveText = archive.count > 1 ? ` · set ${(archive.index ?? 0) + 1} of ${archive.count}` : '';
-  els.snapshotTime.textContent = `Updated ${formatSnapshotTime(fetchedAt)}${ageText}${archiveText}`;
+  const offlineText = isOffline() ? 'Offline · ' : '';
+  els.snapshotTime.textContent = `${offlineText}Updated ${formatSnapshotTime(fetchedAt)}${ageText}${archiveText}`;
   els.previous.disabled = !archive.hasPrevious;
   els.next.disabled = !archive.hasNext;
-  els.refresh.classList.toggle('hidden', !isStale);
+  const canRefresh = isCurrent && navigator.onLine && (isStale || state.servedOffline);
+  els.refresh.classList.toggle('hidden', !canRefresh);
+}
+
+function isOffline() {
+  return !navigator.onLine || state.servedOffline;
+}
+
+function updateConnectivity() {
+  updateSnapshotControls();
+  setCastButtonsDisabled(Boolean(state.castPendingSpeed));
 }
 
 async function startPractice() {

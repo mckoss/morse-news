@@ -35,6 +35,11 @@ app.get(['/reference', '/reference.html'], (req, res) => {
   res.type('html').send(html);
 });
 
+app.get('/sw.js', (req, res) => {
+  res.set('Cache-Control', 'no-cache, must-revalidate');
+  res.type('application/javascript').send(renderPage('sw.js'));
+});
+
 app.use(express.static('public', {
   etag: true,
   maxAge: 0,

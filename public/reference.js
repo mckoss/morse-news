@@ -1,4 +1,5 @@
 import { END_OF_MESSAGE_PROSIGN, MORSE, MORSE_REFERENCE_GROUPS } from './morse-timing.js';
+import { registerServiceWorker } from './pwa.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DOT_DIAMETER = 8;
@@ -42,6 +43,8 @@ const audioState = {
   runId: 0,
   activeButton: null,
 };
+
+registerServiceWorker();
 
 showCodes?.addEventListener('change', () => {
   container?.classList.toggle('show-codes', showCodes.checked);
