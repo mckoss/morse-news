@@ -96,7 +96,8 @@ async function saveHeadlineHistory(latestResponse) {
     try {
       let hasPrevious = Boolean(latest.archive?.hasPrevious);
       for (let index = 1; hasPrevious && index <= HISTORY_MAX_SETS; index += 1) {
-        const response = await fetch(`/api/headlines?index=${index}`, { cache: 'no-cache' });
+        // no-store keeps these out of the HTTP cache; this cache is the only saved copy.
+        const response = await fetch(`/api/headlines?index=${index}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.clone().json();
         if (new Date(payload.fetchedAt).getTime() < cutoff) break;

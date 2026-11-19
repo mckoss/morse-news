@@ -112,7 +112,16 @@ test('installed app reloads saved headlines and reference page while offline', a
       await page.getByRole('button', { name: 'Previous' }).click();
       await page.locator('.headline-title', { hasText: 'from 2 days ago' }).waitFor();
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.waitForFunction(() => document.querySelector('#headline-count')?.textContent.includes('not saved on this device'));
+      await page.waitForFunction(() => {
+        const count = document.querySelector('#headline-count')?.textContent ?? '';
+        const titles = document.querySelector('#headlines')?.textContent ?? '';
+        return count.includes('not saved on this device') || titles.includes('from 10 days ago');
+      });
+      assert.match(
+        await page.locator('#headline-count').textContent(),
+        /not saved on this device/,
+        `sets older than the history window must not load offline; page shows: ${await page.locator('#headlines').textContent()}`,
+      );
 
       await page.goto(`${url}/reference`);
       await page.locator('.morse-table .morse-play').first().waitFor();
