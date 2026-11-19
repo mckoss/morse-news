@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   excludePreviousSnapshotHeadlines,
+  isUsefulHeadline,
   normalizeHeadline,
   parseRssItems,
   parseRssTitles,
@@ -61,4 +62,11 @@ test('excludePreviousSnapshotHeadlines removes items from the previous current s
   assert.deepEqual(excludePreviousSnapshotHeadlines(nextItems, previousSnapshot), [
     { title: 'New science discovery', source: 'ScienceDaily', category: 'science' },
   ]);
+});
+
+test('isUsefulHeadline drops show titles of three words or fewer', () => {
+  assert.equal(isUsefulHeadline('Morning News Brief'), false);
+  assert.equal(isUsefulHeadline('Up First - Briefing'), false);
+  assert.equal(isUsefulHeadline(''), false);
+  assert.equal(isUsefulHeadline('Senate passes budget bill'), true);
 });
