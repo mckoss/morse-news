@@ -63,9 +63,17 @@ test('installed app reloads saved headlines and reference page while offline', a
     'Offline practice headline number one',
     'Offline practice headline number two',
   ].map((title) => ({ title, source: 'Test Source', category: 'test', link: '' }));
+  const dayMs = 24 * 60 * 60 * 1000;
+  const archiveSet = (daysAgo) => ({
+    fetchedAt: new Date(Date.now() - daysAgo * dayMs).toISOString(),
+    headlines: [{ title: `Archived headline from ${daysAgo} days ago`, source: 'Test Source', category: 'test', link: '' }],
+  });
   await writeFile(path.join(dataDir, 'headlines-cache.json'), JSON.stringify({
     fetchedAt: new Date().toISOString(),
     headlines: offlineHeadlines,
+  }));
+  await writeFile(path.join(dataDir, 'headlines-archive.json'), JSON.stringify({
+    snapshots: [archiveSet(1), archiveSet(2), archiveSet(10)],
   }));
 
   try {
@@ -84,12 +92,27 @@ test('installed app reloads saved headlines and reference page while offline', a
       await page.reload();
       await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
       await page.locator('.headline-title', { hasText: 'number one' }).waitFor();
+      await page.waitForFunction(async () => {
+        const cache = await caches.open('morse-news-data');
+        return Boolean(await cache.match('/api/headlines?index=2'));
+      });
+      assert.equal(await page.evaluate(async () => {
+        const cache = await caches.open('morse-news-data');
+        return Boolean(await cache.match('/api/headlines?index=3'));
+      }), false, 'sets older than the history window are not saved');
 
       await context.setOffline(true);
       await page.reload();
       await page.locator('.headline-title', { hasText: 'number two' }).waitFor();
       await page.waitForFunction(() => document.querySelector('#snapshot-time')?.textContent.startsWith('Offline'));
       assert.match(await page.locator('#headline-count').textContent(), /saved for offline practice/);
+
+      await page.getByRole('button', { name: 'Previous' }).click();
+      await page.locator('.headline-title', { hasText: 'from 1 days ago' }).waitFor();
+      await page.getByRole('button', { name: 'Previous' }).click();
+      await page.locator('.headline-title', { hasText: 'from 2 days ago' }).waitFor();
+      await page.getByRole('button', { name: 'Previous' }).click();
+      await page.waitForFunction(() => document.querySelector('#headline-count')?.textContent.includes('not saved on this device'));
 
       await page.goto(`${url}/reference`);
       await page.locator('.morse-table .morse-play').first().waitFor();

@@ -59,6 +59,7 @@ The app intentionally serves mutable static assets with `Cache-Control: no-cache
 The app is an installable PWA. `public/manifest.webmanifest` and `public/icons/` provide install metadata. `public/sw.js` is rendered by the server at `/sw.js` with the `package.json` version substituted, so every release installs a fresh service worker and replaces the versioned shell cache.
 
 - Pages (`/`, `/reference`) and `/api/headlines` are network-first with a 4 second timeout, falling back to the last saved copy. Cached fallbacks carry `X-Morse-News-Offline: 1`, which the page uses to show offline state.
+- When a fresh latest headline set arrives, the service worker also saves the last 7 days of archive sets (`HISTORY_DAYS` in `public/sw.js`) so Previous works offline. Archive indexes are relative to the latest set, so history is re-saved as a whole and dropped if the download is partial.
 - Static assets are cache-first from the versioned shell cache. If you add a new browser module or page, add it to `SHELL_URLS` in `public/sw.js`.
 - Other `/api/` routes (Cast) are never cached; Cast needs the network.
 
