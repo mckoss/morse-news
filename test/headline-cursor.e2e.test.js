@@ -77,7 +77,7 @@ test('installed app reloads saved headlines and reference page while offline', a
   }));
 
   try {
-    await withApp({ env: { DATA_DIR: dataDir } }, async ({ context, page, url }) => {
+    await withApp({ env: { DATA_DIR: dataDir } }, async ({ context, page, url, stopApp }) => {
       await page.route('https://www.gstatic.com/**', (route) => route.fulfill({
         contentType: 'application/javascript',
         body: '',
@@ -101,6 +101,9 @@ test('installed app reloads saved headlines and reference page while offline', a
         return Boolean(await cache.match('/api/headlines?index=3'));
       }), false, 'sets older than the history window are not saved');
 
+      // Stop the server as well: Playwright's offline mode does not cut off
+      // service worker fetches in every Chromium build.
+      await stopApp();
       await context.setOffline(true);
       await page.reload();
       await page.locator('.headline-title', { hasText: 'number two' }).waitFor();
@@ -108,11 +111,20 @@ test('installed app reloads saved headlines and reference page while offline', a
       assert.match(await page.locator('#headline-count').textContent(), /saved for offline practice/);
 
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.locator('.headline-title', { hasText: 'from 1 days ago' }).waitFor();
+      await waitForArchivedSet(page, 'from 1 days ago');
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.locator('.headline-title', { hasText: 'from 2 days ago' }).waitFor();
+      await waitForArchivedSet(page, 'from 2 days ago');
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.waitForFunction(() => document.querySelector('#headline-count')?.textContent.includes('not saved on this device'));
+      await page.waitForFunction(() => {
+        const count = document.querySelector('#headline-count')?.textContent ?? '';
+        const titles = document.querySelector('#headlines')?.textContent ?? '';
+        return count.includes('not saved on this device') || titles.includes('from 10 days ago');
+      });
+      assert.match(
+        await page.locator('#headline-count').textContent(),
+        /not saved on this device/,
+        `sets older than the history window must not load offline; page shows: ${await page.locator('#headlines').textContent()}`,
+      );
 
       await page.goto(`${url}/reference`);
       await page.locator('.morse-table .morse-play').first().waitFor();
@@ -170,6 +182,22 @@ test('install button stays hidden when running as the installed app', async () =
   });
 });
 
+async function waitForArchivedSet(page, titleText) {
+  await page.waitForFunction((text) => {
+    const count = document.querySelector('#headline-count')?.textContent ?? '';
+    const titles = document.querySelector('#headlines')?.textContent ?? '';
+    return titles.includes(text) || count.includes('not saved on this device');
+  }, titleText);
+  const titles = await page.locator('#headlines').textContent();
+  if (titles.includes(titleText)) return;
+
+  const cachedKeys = await page.evaluate(async () => {
+    const cache = await caches.open('morse-news-data');
+    return (await cache.keys()).map((request) => new URL(request.url).pathname + new URL(request.url).search);
+  });
+  assert.fail(`expected offline set "${titleText}"; page says "${await page.locator('#headline-count').textContent()}"; data cache has ${JSON.stringify(cachedKeys)}`);
+}
+
 async function withApp({ env = {}, contextOptions = {} } = {}, run) {
   const port = await findOpenPort();
   const server = spawn(process.execPath, ['server.js'], {
@@ -186,7 +214,7 @@ async function withApp({ env = {}, contextOptions = {} } = {}, run) {
     browser = await chromium.launch();
     const context = await browser.newContext(contextOptions);
     const page = await context.newPage();
-    await run({ context, page, url: `http://127.0.0.1:${port}` });
+    await run({ context, page, url: `http://127.0.0.1:${port}`, stopApp: () => stopServer(server) });
   } finally {
     await browser?.close();
     await stopServer(server);
@@ -261,7 +289,7 @@ async function waitForServer(url) {
 }
 
 async function stopServer(server) {
-  if (server.exitCode !== null) return;
+  if (server.exitCode !== null || server.signalCode !== null) return;
   server.kill('SIGTERM');
   await Promise.race([
     once(server, 'exit'),
