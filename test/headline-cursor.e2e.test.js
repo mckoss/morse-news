@@ -111,9 +111,9 @@ test('installed app reloads saved headlines and reference page while offline', a
       assert.match(await page.locator('#headline-count').textContent(), /saved for offline practice/);
 
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.locator('.headline-title', { hasText: 'from 1 days ago' }).waitFor();
+      await waitForArchivedSet(page, 'from 1 days ago');
       await page.getByRole('button', { name: 'Previous' }).click();
-      await page.locator('.headline-title', { hasText: 'from 2 days ago' }).waitFor();
+      await waitForArchivedSet(page, 'from 2 days ago');
       await page.getByRole('button', { name: 'Previous' }).click();
       await page.waitForFunction(() => {
         const count = document.querySelector('#headline-count')?.textContent ?? '';
@@ -181,6 +181,22 @@ test('install button stays hidden when running as the installed app', async () =
     assert.equal(await page.locator('#install-row').isVisible(), false);
   });
 });
+
+async function waitForArchivedSet(page, titleText) {
+  await page.waitForFunction((text) => {
+    const count = document.querySelector('#headline-count')?.textContent ?? '';
+    const titles = document.querySelector('#headlines')?.textContent ?? '';
+    return titles.includes(text) || count.includes('not saved on this device');
+  }, titleText);
+  const titles = await page.locator('#headlines').textContent();
+  if (titles.includes(titleText)) return;
+
+  const cachedKeys = await page.evaluate(async () => {
+    const cache = await caches.open('morse-news-data');
+    return (await cache.keys()).map((request) => new URL(request.url).pathname + new URL(request.url).search);
+  });
+  assert.fail(`expected offline set "${titleText}"; page says "${await page.locator('#headline-count').textContent()}"; data cache has ${JSON.stringify(cachedKeys)}`);
+}
 
 async function withApp({ env = {}, contextOptions = {} } = {}, run) {
   const port = await findOpenPort();

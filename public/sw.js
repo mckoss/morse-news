@@ -6,6 +6,8 @@ const OFFLINE_HEADER = 'X-Morse-News-Offline';
 const HISTORY_DAYS = 7;
 const HISTORY_MAX_SETS = 40;
 
+let historySave = Promise.resolve();
+
 const PAGE_PATHS = new Map([
   ['/', '/'],
   ['/index.html', '/'],
@@ -61,7 +63,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname === '/api/headlines') {
     const isLatest = !url.searchParams.has('index') || url.searchParams.get('index') === '0';
     event.respondWith(networkFirst(request, DATA_CACHE, url.pathname + url.search, {
-      onFresh: isLatest ? (response) => event.waitUntil(saveHeadlineHistory(response)) : null,
+      onFresh: isLatest ? (response) => event.waitUntil(queueHeadlineHistorySave(response)) : null,
     }));
     return;
   }
@@ -84,6 +86,13 @@ async function networkFirst(request, cacheName, cacheKey, { onFresh = null } = {
     if (!cached) throw error;
     return markOffline(cached);
   }
+}
+
+// Saves run one at a time so a failed run can't clear history that a
+// concurrent run just saved.
+function queueHeadlineHistorySave(latestResponse) {
+  historySave = historySave.then(() => saveHeadlineHistory(latestResponse));
+  return historySave;
 }
 
 // Archive indexes are relative to the latest set, so the whole recent history
